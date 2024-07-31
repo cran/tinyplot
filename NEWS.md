@@ -1,5 +1,37 @@
 # News
 
+_If you are viewing this file on CRAN, please check the
+[latest NEWS](https://grantmcdermott.com/tinyplot/NEWS.html) on our website
+where the formatting is also better._
+
+## 0.2.0
+
+New features:
+
+- Support for additional plot types:
+  - `type = "n"`, i.e. empty plot. Since `type = "n"` implicitly assumes points,
+  which limits the type of legend that can be drawn alongside the empty plot, we
+  have also added a companion `empty` argument that can be used alongside any
+  plot type. (#157, #167 @grantmcdermott)
+  - `type = "boxplot"`. Simultaneously enables `plt(numeric ~ factor)`
+  support, first raised in #2, so that a boxplot is automatically plotted if a
+  numeric is plotted against a factor. (#154 @grantmcdermott)
+  - `type = "polypath`. (#159 @grantmcdermott)
+  - `type = "rect"`. (#161 @grantmcdermott)
+  - `type = "segments"`. (#163 @grantmcdermott)
+  - `type = "histogram"` (alias `type = "hist"`). (#164 @grantmcdermott)
+  - `type = "jitter"` (alias `type = "j"`). (#170 @grantmcdermott)
+
+Internals:
+
+- The main codebase has been significantly refactored (modularized), which
+should simplify future maintenance and enable better user-level error messages
+(#171, #173 @vincentarelbundock)
+
+Misc:
+
+- Various documentation improvements.
+
 ## 0.1.0
 
 Our first CRAN submission! This v0.1.0 release includes the following new

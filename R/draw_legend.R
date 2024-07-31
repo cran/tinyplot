@@ -151,7 +151,7 @@ draw_legend = function(
   if (!exists("title", where = legend_args)) legend_args[["title"]] = by_dep
   if (is.null(legend_args[["pch"]])) legend_args[["pch"]] = pch
   if (is.null(legend_args[["lty"]])) legend_args[["lty"]] = lty
-  if (!is.null(type) && !(type %in% c("p", "ribbon", "polygon"))) {
+  if (!is.null(type) && !(type %in% c("p", "ribbon", "polygon", "polypath"))) {
     if (is.null(legend_args[["lwd"]])) legend_args[["lwd"]] = lwd
   }
   if (is.null(legend_args[["col"]])) legend_args[["col"]] = col
@@ -166,14 +166,17 @@ draw_legend = function(
   ) {
     legend_args[["pt.cex"]] = cex
   }
-  if (type %in% c("ribbon", "polygon") || isTRUE(gradient)) {
-    if (is.null(legend_args[["pch"]])) legend_args[["pch"]] = 22
+  if (type %in% c("rect", "ribbon", "polygon", "polypath", "boxplot") || isTRUE(gradient)) {
+    legend_args[["pch"]] = 22
     if (is.null(legend_args[["pt.cex"]])) legend_args[["pt.cex"]] = 3.5
-    if (is.null(legend_args[["pt.lwd"]]) && (!is.null(type) && type != "polygon")) {
+    if (is.null(legend_args[["pt.lwd"]]) && (!is.null(type) && !(type %in% c("rect", "polygon", "polypath", "boxplot")))) {
       legend_args[["pt.lwd"]] = 0
     }
     if (is.null(legend_args[["y.intersp"]])) legend_args[["y.intersp"]] = 1.25
     if (is.null(legend_args[["seg.len"]])) legend_args[["seg.len"]] = 1.25
+  }
+  if (type == "n" && isFALSE(gradient)) {
+    if (is.null(legend_args[["pch"]])) legend_args[["pch"]] = par("pch")
   }
   
   
