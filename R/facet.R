@@ -1,6 +1,6 @@
 # Facet layout structure
 #
-# This function is called by `tinyplot`. Given some inputs, it returns 
+# This function is called by `tinyplot`. Given some inputs, it returns
 # information about the layout of the facets.
 #
 facet_layout = function(facet, add = FALSE, facet.args = list()) {
@@ -49,7 +49,7 @@ facet_layout = function(facet, add = FALSE, facet.args = list()) {
     facets = ifacet = nfacets = oxaxis = oyaxis = 1
     cex_fct_adj = 1
   }
-  
+
   list(
     facets = facets,
     ifacet = ifacet,
@@ -119,10 +119,23 @@ get_facet_fml = function(formula, data = NULL) {
 # internal function to draw window with different facets, grids, axes, etc.
 
 draw_facet_window = function(grid, ...) {
-
   list2env(list(...), environment())
 
+  # draw background color only in the grid rectangle
+  grid.bg = get_tpar("grid.bg")
+  if (!is.null(grid.bg)) {
+    corners = par("usr")
+    rect(corners[1], corners[3], corners[2], corners[4], col = grid.bg, border = NA)
+  }
+
+  ## dynamic margins flag
+  dynmar = isTRUE(.tpar[["dynmar"]])
+  
   if (isFALSE(add)) {
+    ## optionally allow to modify the style of axis interval calculation
+    if (!is.null(xaxs)) par(xaxs = xaxs)
+    if (!is.null(yaxs)) par(yaxs = yaxs)
+
     if (nfacets > 1) {
       # Set facet margins (i.e., gaps between facets)
       if (is.null(facet.args[["fmar"]])) {
@@ -147,7 +160,7 @@ draw_facet_window = function(grid, ...) {
         if (!(nfacet_rows == 2 && nfacet_cols == 2)) fmar = fmar * .75
       }
       # Extra reduction if no plot frame to reduce whitespace
-      if (isFALSE(frame.plot)) {
+      if (isFALSE(frame.plot) && !isTRUE(facet.args[["free"]])) {
         fmar = fmar - 0.5
       }
 
@@ -163,6 +176,44 @@ draw_facet_window = function(grid, ...) {
       fmar[3] = fmar[3] + facet_newlines * facet_text / cex_fct_adj
 
       omar = par("mar")
+      
+      ## Dynamic plot margin adjustments
+      if (dynmar) {
+        if (par("las") %in% 1:2) {
+          # extra whitespace bump on the y axis
+          # yaxl = axTicks(2)
+          yaxl = axisTicks(usr = extendrange(ylim, f = 0.04), log = par("ylog"))
+          ## overrides for ridge and spineplot types
+          if (type == "ridge") yaxl = levels(y)
+          if (type == "spineplot") yaxl = ylabs
+          # whtsbp = grconvertX(max(strwidth(yaxl, "figure")), from = "nfc", to = "lines") - 1
+          whtsbp = grconvertX(max(strwidth(yaxl, "figure")), from = "nfc", to = "lines") - grconvertX(0, from = "nfc", to = "lines") - 1
+          if (whtsbp > 0) {
+            omar = omar + c(0, whtsbp, 0, 0) * cex_fct_adj
+            fmar[2] = fmar[2] + whtsbp * cex_fct_adj
+          }
+        }
+        if (par("las") %in% 2:3) {
+          # extra whitespace bump on the x axis
+          # xaxl = axTicks(1)
+          xaxl = axisTicks(usr = extendrange(xlim, f = 0.04), log = par("xlog"))
+          whtsbp = grconvertY(max(strwidth(xaxl, "figure")), from = "nfc", to = "lines") - 1
+          # whtsbp = grconvertY(max(strwidth(xaxl, "figure")), from = "nfc", to = "lines") - grconvertY(0, from = "nfc", to = "lines") - 1
+          if (whtsbp > 0) {
+            omar = omar + c(whtsbp, 0, 0, 0) * cex_fct_adj
+            fmar[1] = fmar[1] + whtsbp * cex_fct_adj
+          }
+        }
+        # FIXME: Is this causing issues for lhs legends with facet_grid?
+        # catch for missing rhs legend
+        if (isTRUE(attr(facet, "facet_grid")) && !has_legend) {
+          omar[4] = omar[4] + 1
+        }
+        # Extra reduction if no plot frame to reduce whitespace
+        if (isFALSE(frame.plot) && !isTRUE(facet.args[["free"]])) {
+          fmar[2] = fmar[2] - (whtsbp * cex_fct_adj)
+        }
+      }
 
       # Now we set the margins. The trick here is that we simultaneously adjust
       # inner (mar) and outer (oma) margins by the same amount, but in opposite
@@ -184,6 +235,35 @@ draw_facet_window = function(grid, ...) {
       # Now that the margins have been set, arrange facet rows and columns based
       # on our earlier calculations.
       par(mfrow = c(nfacet_rows, nfacet_cols))
+    } else if (dynmar) {
+      # Dynamic plot margin adjustments
+      omar = par("mar")
+      omar = omar - c(0, 0, 1, 0) # reduce top whitespace since no facet (title)
+      if (type == "spineplot") omar[4] = 2.1 # catch for spineplot RHS axis labs
+      if (par("las") %in% 1:2) {
+        # extra whitespace bump on the y axis
+        # yaxl = axTicks(2)
+        yaxl = axisTicks(usr = extendrange(ylim, f = 0.04), log = par("ylog"))
+        ## overrides for ridge and spineplot types
+        if (type == "ridge") yaxl = levels(y)
+        if (type == "spineplot") yaxl = ylabs
+        # whtsbp = grconvertX(max(strwidth(yaxl, "figure")), from = "nfc", to = "lines") - 1
+        whtsbp = grconvertX(max(strwidth(yaxl, "figure")), from = "nfc", to = "lines") - grconvertX(0, from = "nfc", to = "lines") - 1
+        if (whtsbp > 0) {
+          omar[2] = omar[2] + whtsbp
+        }
+      }
+      if (par("las") %in% 2:3) {
+        # extra whitespace bump on the x axis
+        # xaxl = axTicks(1)
+        xaxl = axisTicks(usr = extendrange(ylim, f = 0.04), log = par("xlog"))
+        whtsbp = grconvertY(max(strwidth(xaxl, "figure")), from = "nfc", to = "lines") - 1
+        # whtsbp = grconvertY(max(strwidth(xaxl, "figure")), from = "nfc", to = "lines") - grconvertY(0, from = "nfc", to = "lines") - 1
+        if (whtsbp > 0) {
+          omar[1] = omar[1] + whtsbp
+        }
+      }
+       par(mar = omar)
     }
 
     ## Loop over the individual facet windows and draw the plot region
@@ -209,7 +289,7 @@ draw_facet_window = function(grid, ...) {
       ## Idea borrowed from here: https://stackoverflow.com/a/4128401/4115816
       pdots = dots[names(dots) %in% names(formals(plot.default))]
       ## catch for flipped boxplots...
-      if (type == "boxplot" && isTRUE(dots[["horizontal"]])) {
+      if (type == "boxplot" && isTRUE(flip)) {
         log_flip = log
         if (!is.null(log)) {
           if (log == "x") log_flip = "y"
@@ -231,28 +311,83 @@ draw_facet_window = function(grid, ...) {
         yside = 2
       }
 
+
       # axes, frame.plot and grid
-      if (isTRUE(axes)) {
-        if (isTRUE(frame.plot)) {
+      if (isTRUE(axes) || isTRUE(facet.args[["free"]])) {
+        args_x = list(x,
+          side = xside,
+          type = xaxt,
+          cex = get_tpar(c("cex.xaxs", "cex.axis"), 0.8),
+          lwd = get_tpar(c("lwd.xaxs", "lwd.axis"), 1),
+          lty = get_tpar(c("lty.xaxs", "lty.axis"), 1)
+        )
+        args_y = list(y,
+          side = yside,
+          type = yaxt,
+          cex = get_tpar(c("cex.yaxs", "cex.axis"), 0.8),
+          lwd = get_tpar(c("lwd.yaxs", "lwd.axis"), 1),
+          lty = get_tpar(c("lty.yaxs", "lty.axis"), 1)
+        )
+        type_range_x = type %in% c("pointrange", "errorbar", "ribbon", "boxplot", "p") && !is.null(xlabs)
+        type_range_y = isTRUE(flip) && type %in% c("pointrange", "errorbar", "ribbon", "boxplot", "p") && !is.null(ylabs)
+        if (type_range_x) {
+          args_x = modifyList(args_x, list(at = xlabs, labels = names(xlabs)))
+        }
+        if (type_range_y) {
+          args_y = modifyList(args_y, list(at = ylabs, labels = names(ylabs)))
+        }
+
+        if (isTRUE(facet.args[["free"]]) && (par("xlog") || par("ylog"))) {
+          warning(
+            "\nFree scale axes for faceted plots are currently not supported if the axes are logged. Reverting back to fixed scales.",
+            "\nIf support for this feature is important to you, please raise an issue on our GitHub repo:",
+            "\nhttps://github.com/grantmcdermott/tinyplot/issues\n"
+          )
+          facet.args[["free"]] = FALSE
+        }
+
+        # Special logic if facets are free...
+        if (isTRUE(facet.args[["free"]])) {
+          # First, we need to calculate the plot extent and axes range of each
+          # individual facet.
+          xfree = split(c(x, xmin, xmax), facet)[[ii]]
+          yfree = split(c(y, ymin, ymax), facet)[[ii]]
+          xlim = range(xfree, na.rm = TRUE)
+          ylim = range(yfree, na.rm = TRUE)
+          xext = extendrange(xlim, f = 0.04)
+          yext = extendrange(ylim, f = 0.04)
+          # We'll save this in a special .fusr env var (list) that we'll re-use
+          # when it comes to plotting the actual elements later
+          if (ii == 1) {
+            fusr = replicate(4, vector("double", length = nfacets), simplify = FALSE)
+            assign(".fusr", fusr, envir = get(".tinyplot_env", envir = parent.env(environment())))
+          }
+          fusr = get(".fusr", envir = get(".tinyplot_env", envir = parent.env(environment())))
+          fusr[[ii]] = c(xext, yext)
+          assign(".fusr", fusr, envir = get(".tinyplot_env", envir = parent.env(environment())))
+          # Explicitly set (override) the current facet extent
+          par(usr = fusr[[ii]])
           # if plot frame is true then print axes per normal...
           if (type %in% c("pointrange", "errorbar", "ribbon", "boxplot", "p") && !is.null(xlabs)) {
-            tinyAxis(x, side = xside, at = xlabs, labels = names(xlabs), type = xaxt)
+            tinyAxis(xfree, side = xside, at = xlabs, labels = names(xlabs), type = xaxt)
           } else {
-            tinyAxis(x, side = xside, type = xaxt)
+            tinyAxis(xfree, side = xside, type = xaxt)
           }
-          tinyAxis(y, side = yside, type = yaxt)
+          if (isTRUE(flip) && type %in% c("pointrange", "errorbar", "ribbon", "boxplot", "p") && !is.null(ylabs)) {
+            tinyAxis(yfree, side = yside, at = ylabs, labels = names(ylabs), type = yaxt)
+          } else {
+            tinyAxis(yfree, side = yside, type = yaxt)
+          }
+
+          # For fixed facets we can just reuse the same plot extent and axes limits
+        } else if (isTRUE(frame.plot)) {
+          # if plot frame is true then print axes per normal...
+          do.call(tinyAxis, args_x)
+          do.call(tinyAxis, args_y)
         } else {
           # ... else only print the "outside" axes.
-          if (ii %in% oxaxis) {
-            if (type %in% c("pointrange", "errorbar", "ribbon", "boxplot", "p") && !is.null(xlabs)) {
-              tinyAxis(x, side = xside, at = xlabs, labels = names(xlabs), type = xaxt)
-            } else {
-              tinyAxis(x, side = xside, type = xaxt)
-            }
-          }
-          if (ii %in% oyaxis) {
-            tinyAxis(y, side = yside, type = yaxt)
-          }
+          if (ii %in% oxaxis) do.call(tinyAxis, args_x)
+          if (ii %in% oyaxis) do.call(tinyAxis, args_y)
         }
       }
 
@@ -320,7 +455,6 @@ draw_facet_window = function(grid, ...) {
               if (xlog) {
                 line_height = grconvertX(line_height, from = "lines", to = "user") / grconvertX(0, from = "lines", to = "user")
                 rect_width = corners[2] * line_height
-                
               } else {
                 line_height = grconvertX(line_height, from = "lines", to = "user") - grconvertX(0, from = "lines", to = "user")
                 rect_width = corners[2] + line_height
@@ -334,7 +468,6 @@ draw_facet_window = function(grid, ...) {
             if (xlog) {
               xpos = grconvertX(0.4, from = "lines", to = "user") / grconvertX(0, from = "lines", to = "user")
               xpos = corners[2] * xpos
-              
             } else {
               xpos = grconvertX(0.4, from = "lines", to = "user") - grconvertX(0, from = "lines", to = "user")
               xpos = corners[2] + xpos
@@ -402,22 +535,62 @@ draw_facet_window = function(grid, ...) {
           ## resort to using grid() which is likely better handled there.
           if (isTRUE(grid)) {
             gnx = gny = NULL
-            if (!par("xlog")) {
-              abline(v = pretty(extendrange(x)), col = "lightgray", lty = "dotted", lwd = par("lwd"))
+            if (!any(c(par("xlog"), type == "boxplot"))) {
+              if (!inherits(x, c("POSIXt", "Date"))) {
+                xg = pretty(xlim)
+              } else {
+                # Catch for datetime (since xlim has been coerced to numeric)
+                tz = attributes(x)[["tzone"]]
+                if (inherits(x, "POSIXt")) {
+                  xg = pretty(as.POSIXct(extendrange(xlim), tz = tz))
+                } else {
+                  xg = pretty(as.Date(round(extendrange(xlim)), tz = tz))
+                }
+              }
+              abline(v = xg, col = .tpar[["grid.col"]], lty = .tpar[["grid.lty"]], lwd = .tpar[["grid.lwd"]])
               gnx = NA
             }
-            if (!par("ylog")) {
-              abline(h = pretty(extendrange(c(y, ymin, ymax))), col = "lightgray", lty = "dotted", lwd = par("lwd"))
+            if (!any(c(par("ylog"), type == "boxplot"))) {
+              if (!inherits(y, c("POSIXt", "Date"))) {
+                yg = pretty(ylim)
+              } else {
+                # Catch for datetime (since xlim has been coerced to numeric)
+                tz = attributes(y)[["tzone"]]
+                if (inherits(x, "POSIXt")) {
+                  yg = pretty(as.POSIXct(extendrange(ylim), tz = tz))
+                } else {
+                  yg = pretty(as.Date(extendrange(ylim), tz = tz))
+                }
+              }
+              abline(h = yg, col = .tpar[["grid.col"]], lty = .tpar[["grid.lty"]], lwd = .tpar[["grid.lwd"]])
               gny = NA
             }
-            grid(nx = gnx, ny = gny)
+            grid(nx = gnx, ny = gny, col = .tpar[["grid.col"]], lty = .tpar[["grid.lty"]], lwd = .tpar[["grid.lwd"]])
           }
         } else {
           grid
         }
       }
+
+      # drawn elements
+      if (!is.null(draw)) eval(draw)
     } # end of ii facet loop
   } # end of add check
 
   return(as.list(environment()))
+}
+
+## internal convenience function to determine whether the current facet panel
+## has the position "left", "right", "top", or "bottom" in the facet grid
+is_facet_position = function(position, ifacet, facet_window_args) {
+  id = facet_window_args$ifacet
+  nc = facet_window_args$nfacet_cols
+  ni = tail(id, 1L)
+  switch(position,
+    "left"   = ifacet %in% seq(1L, ni, by = nc),
+    "right"  = ifacet %in% pmin(ni, seq(1L, ni, by = nc) + nc - 1L),
+    "top"    = ifacet %in% head(id, nc),
+    "bottom" = ifacet %in% tail(id, nc),
+    NA
+  )
 }

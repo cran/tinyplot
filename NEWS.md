@@ -6,6 +6,181 @@ where the formatting is also better._
 
 ## 0.3.0
 
+### New features
+
+**tinyplot** v0.3.0 is a big release with many new features, both internal and
+user-facing. Related updates are grouped below for easier navigation.
+
+#### Revamped `type` logic and functional equivalents
+
+_(Primary PR and author: #222 @vincentarelbundock)_
+
+- In addition to the standard character labels (`"p"`, `"density"`, etc.), the
+  `type` argument now supports _functional_ equivalents (`type_points()`,
+  `type_density()`, etc.). These new functional types all take the form
+  `type_*()`.
+- The character and functional types are interchangeable. For example,
+  ```r
+  tinyplot(Nile, type = "hist")
+  ```
+  and
+  ```r
+  tinyplot(Nile, type = type_hist())
+  ```
+  produce exactly the same result.
+- The main advantage of the functional `type_*()` variants is that they offer
+  much more flexibility and control beyond the default case(s). Users can pass
+  appropriate arguments to existing types for customization and can even define
+  their own `type_<typename>()` functions. More information is available in the
+  dedicated help page for each type (e.g., `?type_hist`, `?type_lm`, etc.)
+- On the development side, overhauling the `type` system has also allowed us to
+  introduce a number of new plot types and features (see list below). We have
+  also simplified our internal codebase, since explicit argument passing
+  requires less guesswork on our end. Speaking of which, we now recommended that
+  users explicitly pass ancillary type-specific arguments as part of the
+  relevant `type_*()` call. For example,
+  ```r
+  tinyplot(Nile, type = type_hist(breaks = 30))
+  ```
+  is preferable to
+  ```r
+  tinyplot(Nile, type = "hist", breaks = 30)
+  ```
+  While the latter option will still work, we cannot guarantee that argument
+  passing will work in every situation. (Reason: Passing ancillary type-specific
+  arguments at the top level of the plot call only works if these do not
+  conflict with the main arguments of the `tinyplot()` function itself; see
+  #267.)
+- Some minor breaking changes were unavoidable; see further below.
+- For more details on the new `type` system, please see the dedicated
+  [Plot types vignette](https://grantmcdermott.com/tinyplot/vignettes/types.html)
+  on the website.
+
+#### Support for additional plot types
+
+  - Visualizations:
+  
+    - `type_spineplot()` (shortcut: `"spineplot"`) spine plots and
+    spinograms. These are modified versions of a histogram or mosaic plot,
+    and are particularly useful for visualizing factor variables. (#233
+    @zeileis with contributions from @grantmcdermott)
+    - `type_qq()` (shortcut: "qq") for quantile-quantile plots. (#251
+    @vincentarelbundock)
+    - `type_ridge()` (shortcut: `"ridge"`) for ridge plots aka Joy plots.
+    (#252 @vincentarelbundock, @zeileis, and @grantmcdermott)
+    - `type_rug()` (shortcut: `"rug"`) adds a rug to an existing plot. (#276
+    @grantmcdermott)
+    - `type_text()` (shortcut: `"text"`) adds text annotations. (@vincentarelbundock)
+    
+  - Models:
+    - `type_glm()` (shortcut: `"glm"`) (@vincentarelbundock)
+    - `type_lm()` (shortcut: `"lm"`) (@vincentarelbundock)
+    - `type_loess()` (shortcut: `"loess"`) (@vincentarelbundock)
+    - `type_spline()` (shortcut: `"spline"`) (#241 @grantmcdermott)
+    
+  - Functions:
+    - `type_abline()`: line(s) with intercept and slope (#249 @vincentarelbundock)
+    - `type_hline()`: horizontal line(s) (#249 @vincentarelbundock)
+    - `type_vline()`: vertical line(s) (#249 @vincentarelbundock)
+    - `type_function()`: arbitrary function. (#250 @vincentarelbundock)
+    - `type_summary()`: summarize values of `y` along unique values of `x` (#274
+    @grantmcdermott)
+
+#### Themes
+
+_(Primary PR and authors: #258 @vincentarelbundock and @grantmcdermott)_
+
+- The new `tinytheme()` function provides a convenient mechanism for styling
+  plots according to a variety of pre-defined themes, e.g. `tinytheme("clean")`.
+- Users can also add their own custom themes or tweak an existing theme.
+- Themes are persistent and will affect all subsequent plots until they are
+  explicitly reset, e.g. by calling `tinytheme()` (with no argument) to restore
+  the default plot aesthetic.
+- Behind the scenes, `tinytheme()` sets a hook for a group graphical parameters
+  by passing them through `tpar()`. Users can still use `tpar()` to style their
+  plots manually by setting individual graphical parameters. But going forward
+  we expect that most **tinyplot** users will prefer the convenience of going
+  through `tinytheme()`.
+- More details are provided in the dedicated
+  [Themes vignette](https://grantmcdermott.com/tinyplot/vignettes/themes.html)
+  on the website.
+
+#### Other new features
+
+- New `tinyplot()` arguments:
+  -  `flip <logical>` allows for easily flipping (swapping) the orientation
+  of the x and y axes. This should work regardless of plot type, e.g.
+  `tinyplot(~Sepal.Length | Species, data = iris, type = "density", flip = TRUE)`.
+  (#216 @grantmcdermott)
+  - `draw = <draw_funcs>` allows users to pass arbitrary drawing functions that
+  are evaluated as-is, before the main plotting elements. A core use case is
+  drawing common annotations across every facet of a faceted plot, e.g. text or
+  threshold lines. (#245 @grantmcdermott)
+  - `facet.args` gains a `free = <logical>` sub-argument for independently
+  scaling the axes limits of individual facets. (#253 @grantmcdermott)
+  
+- `tpar()` gains additional `grid.col`, `grid.lty`, and `grid.lwd` arguments for
+  fine-grained control over the appearance of the default panel grid when
+  `tinyplot(..., grid = TRUE)` is called. (#237 @grantmcdermott)
+  
+- The new `tinyplot_add()` (alias: `plt_add()`) convenience function allows
+easy layering of plots without having to specify repeat arguments. (#246
+@vincentarelbundock)
+
+### Breaking changes
+
+- There are a few breaking changes to grouped density plots.
+  - The joint smoothing bandwidth is now computed using an observation-weighted
+    mean (as opposed to a simple mean). Users can customize this joint bandwidth 
+    by invoking the new `type_density(joint.bw = <option>)` argument. See the
+    function documentation for details.  (#291 @grantmcdermott and @zeileis)
+  - Grouped and/or faceted plots are no longer possible on density objects
+    (i.e., via the `tinyplot.density()` method). Instead, please rather call
+    `tinyplot(..., type = "density")` or `tinyplot(..., type = type_density())`
+    on the raw data and pass grouping or facet arguments as needed.
+    (#284 @grantmcdermott)
+- The `ribbon.alpha` argument in `tinyplot()` has been deprecated. Use the
+  `alpha` argument in `type_ribbon()` (and equivalents) instead: e.g.,
+  `tinyplot(..., type = type_ribbon(alpha = 0.5))`.
+  - Aside: Please note that this is _not_ equivalent to using
+  `tinyplot(..., type = "ribbon", alpha = 0.5)` because the latter matches the
+  top-level `alpha` argument of `tinyplot()` itself (and thus modifies the
+  entire `palette`, rather than just the ribbon). See our warning about passing
+  ancillary type-specific arguments above.
+
+### Bug fixes
+
+- Better preserve facet attributes, thus avoiding misarrangement of facet grids
+for density and histogram types. (#209 @zeileis)
+- Plots of the form `plt(numeric ~ character)` now work correctly, with the
+character variable automatically being coerced to a factor. (#219 @zeileis)
+- Respect `xlim` and `ylim` when explicitly supplied by the user. (Thanks to
+@mclements for code submission #221)
+- Axis titles for flipped (horizontal) boxplots are appropriately swapped too.
+(#223 @grantmcdermott)
+- Ribbon plots without `ymin` or `ymax` args, now inherit these values from `y`
+(#224 @grantmcdermott)
+- Plots where `y` is a factor now work automatically, dispatching to the new
+`type_spineplot()` type. Thanks to @zeileis for the original suggestion all the
+way back in #2 and the eventual solution in #233.
+- Free axis scaling now works properly for faceted histograms. The new
+`type_histogram(free.breaks = <logical>, drop.zeros = <logical>)` arguments
+enable fine-grained control over this behaviour. (#228 @eleuven and
+@grantmcdermott)
+
+### Misc
+
+- Continued modularization/abstraction of the code logic. (#214
+@vincentarelbundock)
+- Major internal refactor of the type drawing and data processing. (#222
+@vincentarelbundock)
+- Documentation improvements, e.g. explicit guidance on how to specify multiple
+grouping variables (thanks to @strengjacke for reporting #213).
+  - The new functional type processing system also means that each type now
+    has its own help page (e.g. `?type_hist`, `type_ridge`, etc.)
+
+## 0.2.1
+
 New Features:
 
 - The `axes` argument of `tinyplot()`/`plt()` gains extra options for
@@ -44,6 +219,7 @@ arrangements like `tinyplot(mpg ~ wt, data = mtcars, facet = am + vs ~ gear)`)
 now plot all panels correctly, even if some combinations are missing. (#197
 @grantmcdermott)
 - Fix alignment of facet titles when axes are logged. (#207 @grantmcdermott)
+- Consistent decimals for gradient legends (#277 @grantmcdermott) 
 
 Internals:
 
@@ -147,7 +323,7 @@ adding transparency to plot elements and colours. Example use:
 background fill by passing `bg` (or its alias, `fill`) a numeric in the range
 `[0,1]`. This feature has the same effect as `bg = "by"` except for the added
 transparency. Example use:
-`plt(lat ~ long | depth, data = quakes, pch = 21, cex = 2, bg = 0.2)`. (#129
+`tinyplot(lat ~ long | depth, data = quakes, pch = 21, cex = 2, bg = 0.2)`. (#129
 @grantmcdermott)
 
 
