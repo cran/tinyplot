@@ -11,21 +11,45 @@ sanitize_type = function(type, x, y, dots) {
     return(type)
   }
 
-  types = c(
+  known_types = c(
     "p", "l", "o", "b", "c", "h", "j", "s", "S", "n", 
+    "abline",
+    "area",
+    "bar", "barplot",
+    "box", "boxplot",
     "density",
-    "abline", "area", "boxplot", "errorbar", "function", "glm", "hist",
-    "histogram", "hline", "j", "jitter", "lines", "lm", "loess", "pointrange",
-    "points", "polygon", "polypath", "qq", "rect", "ribbon", "ridge", "rug",
-    "segments", "spineplot", "spline", "text", "vline"
+    "errorbar",
+    "function",
+    "glm",
+    "hist", "histogram",
+    "hline",
+    "j", "jitter",
+    "lines",
+    "lm",
+    "loess",
+    "pointrange",
+    "points",
+    "polygon", "polypath",
+    "qq",
+    "rect",
+    "ribbon",
+    "ridge",
+    "rug",
+    "segments",
+    "spine", "spineplot",
+    "spline",
+    "summary",
+    "text",
+    "violin",
+    "vline"
   )
-  assert_choice(type, types, null.ok = TRUE)
+  assert_choice(type, known_types, null.ok = TRUE)
 
   if (is.null(type)) {
-    if (!is.null(x) && is.factor(x) && !is.factor(y)) {
+    if (!is.null(x) && (is.factor(x) || is.character(x)) && !(is.factor(y) || is.character(y))) {
       # enforce boxplot type for y ~ factor(x)
       type = type_boxplot
-    } else if (is.factor(y)) {
+    } else if (is.factor(y) || is.character(y)) {
       # enforce spineplot type for factor(y) ~ x
       type = type_spineplot
     } else {
@@ -36,6 +60,9 @@ sanitize_type = function(type, x, y, dots) {
   if (is.character(type)) type = switch(type,
     "abline"     = type_abline,
     "area"       = type_area,
+    "bar"        = type_barplot,
+    "barplot"    = type_barplot,
+    "box"        = type_boxplot,
     "boxplot"    = type_boxplot,
     "density"    = type_density,
     "errorbar"   = type_errorbar,
@@ -49,6 +76,7 @@ sanitize_type = function(type, x, y, dots) {
     "lines"      = type_lines,
     "lm"         = type_lm,
     "loess"      = type_loess,
+    "p"          = type_points,
     "pointrange" = type_pointrange,
     "points"     = type_points,
     "polygon"    = type_polygon,
@@ -59,9 +87,12 @@ sanitize_type = function(type, x, y, dots) {
     "ridge"      = type_ridge,
     "rug"        = type_rug,
     "segments"   = type_segments,
+    "spine"      = type_spineplot,
     "spineplot"  = type_spineplot,
     "spline"     = type_spline,
+    "summary"    = type_summary,
     "text"       = type_text,
+    "violin"     = type_violin,
     "vline"      = type_vline,
     type           # default case
   )

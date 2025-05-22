@@ -4,6 +4,104 @@ _If you are viewing this file on CRAN, please check the
 [latest NEWS](https://grantmcdermott.com/tinyplot/NEWS.html) on our website
 where the formatting is also better._
 
+## 0.4.0
+
+### New features:
+
+#### New plot types
+
+- `type = "barplot"` / `type = type_barplot()` for bar plots. This closes out
+  one of the last remaining canonical base plot types that we wanted to provide
+  a native `tinyplot` equivalent for. (#305 and #360 @zeileis and @grantmcdermott) 
+- `type = "violin"` / `type = type_violin()` for violin plots. (#354 @grantmcdermott)
+
+#### Other new features
+
+- `tinyplot(..., file = "*.pdf")` will now default to using `cairo_pdf()` if
+  cairo graphics are supported on the user's machine. This should help to ensure
+  better fidelity of (non-standard) fonts in PDFs. (#311 @grantmcdermott)
+- The `palette` argument now accepts a vector or list of manual colours, e.g.
+  `tinyplot(..., palette = c("cyan4", "hotpink, "purple4"))`, or
+  `tinytheme("clean", palette = c("cyan4", "hotpink, "purple4"))` (#325 @grantmcdermott)
+- Two new sets of top-level arguments allow for greater axis customization:
+  - `xaxb`/`yaxb` control the manual break points of the axis tick marks. (#400 @grantmcdermott)
+  - `xaxl`/`yaxl` apply a formatting function to change the appearance of the
+    axis tick labels. (#363, #391 @grantmcdermott)
+    
+  These `x/yaxb` and `x/yaxl` arguments can be used in complementary fashion;
+  see the new (lower-level) `tinylabel` function documentation. For example:
+  ```r
+  tinyplot((0:10)/10, yaxb = c(.17, .33, .5, .67, .83), yaxl = "%")
+  ```
+- The `x/ymin` and `x/ymax` arguments can now be specified directly via the
+  `tinyplot.formula()` method thanks to better NSE processing. For example,
+  instead of having to write
+  ```r
+  with(dat, tinyplot(x = x, y = y, by = by ymin = lwr, ymax = upr))
+  ```
+  users can now do
+  ```r
+  tinyplot(y ~ x | by, dat, ymin = lwr, ymax = upr)
+  ```
+  
+  Underneath the hood, this works by processing these NSE arguments as part of
+  formula `model.frame()` and reference against the provided dataset. We plan to
+  extend the same logic to other top-level formula arguments such as `weights`
+  and `subset` in a future version of tinyplot.
+  
+### Bug fixes:
+
+- The `tinyplot(..., cex = <cex>)` argument should be respected when using
+  `type = "b"`. Thanks to @rjknell for report #307 and @vincentarelbundock for
+  the fix.
+- The `tinyplot(..., lwd = <lwd>)` argument is now correctly passed down to
+  `pt.lwd` for type `"p"`, which sets proper line weight for the border of `pch`
+  symbols in legend. Report in #319 and fix in #320 by @kscott-1.
+- Passing `x` and/or `y` as character variables now triggers the same default
+  plot type behaviour as factors, e.g. boxplots. (#323 @grantmcdermott)
+- Scatter plots (`type_points()`/`"p"`) now work even if `x` or `y` is a factor
+  or character variable. (#323 @grantmcdermott)
+- The `tinyplot(..., col = <col>)` argument now accepts a numeric index.
+  (#330 @grantmcdermott)
+- `type_text()` now accepts non-character labels. (#336 @grantmcdermott)
+- The `tinyplot(..., pch = <pch>)` argument now accepts character literals, e.g.
+  `pch = "."`. (#338 @grantmcdermott)
+- Line plots (`type_lines()`/`"l"`) now pass on the `bg` argument to the
+  drawing function. Thanks to @wviechtb for report in #355 (@zeileis).
+- Fixed dynamic y-axis margin spacing for flipped `"boxplot"` and `"jitter"`
+  types. Thanks to @eddelbuettel for the report in #357 (@grantmcdermott).
+- Fixed dynamic x-axis margin spacing for perpendicular (vertical) label text,
+  i.e. cases where `las = 2` or `las = 3`. (#369 @grantmcdermott)
+- Better integration with the Positron IDE graphics pane. Thanks to @thomasp85
+  for the report and helpful suggestions. (#377, #394 @grantmcdermott)
+  - The one remaining Positron issue at present is calling `plt_add()` on a
+    faceted plot, but this appears to be an upstream limitation/bug
+    [positron#7316](https://github.com/posit-dev/positron/issues/7316).
+- Fixed a bug that resulted in y-axis labels being coerced to numeric for
+  `"p"`-alike plot types (including `"jitter"`) if `y` is a factor or character.
+  (#387 @grantmcdermott)
+- Fix a colour recycling regression introduced in v0.3.0. Coincidentally, we
+  have improved the consistency across `palette` and `col` arguments,
+  particularly with respect to recycling behaviour. Thanks to @eddelbuettel for
+  the report (#352) and @grantmcdermott for the fix (#410).
+
+### Website:
+
+- Improved column spacing of Arguments in the References section of the website.
+  (#328 thanks to @etiennebacher's upstream `altdoc` fix)
+- Added a new "Ticks & tips" vignette for non-standard workarounds.
+  (#381 @vincentarelbundock)
+- Improved website theme and navigation layout, especially on mobile.
+  (#395 @zeileis)
+
+### Internals:
+
+- The order of the nested loop for drawing interior plot elements has been
+  switched. We now loop over facets first (outer loop) before looping over
+  groups second (inner loop), rather than vice versa. The old/inverted nesting
+  logic was mostly an artifact of development inertia and this new nesting logic
+  should simplify the creation of certain plot types. (#331 @grantmcdermott)
+
 ## 0.3.0
 
 ### New features

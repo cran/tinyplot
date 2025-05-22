@@ -58,7 +58,7 @@ draw_ribbon = function() {
         } else {
             polyg(c(ixmin, rev(ixmax)), iy = c(iy, rev(iy)), icol = NA, ibg = ibg)
         }
-        lin(ix = ix, iy = iy, icol = icol, ipch = ipch, ilty = ilty, ilwd = ilwd, type = "l")
+        lin(ix = ix, iy = iy, icol = icol, ipch = ipch, ibg = ibg, ilty = ilty, ilwd = ilwd, type = "l")
     }
     return(fun)
 }
@@ -66,7 +66,7 @@ draw_ribbon = function() {
 
 data_ribbon = function(ribbon.alpha = NULL) {
     ribbon.alpha = sanitize_ribbon.alpha(ribbon.alpha)
-    fun = function(datapoints, xlabs, ...) {
+    fun = function(datapoints, xlabs, null_by, null_facet, ...) {
         # Convert x to factor if it's not already
         if (is.character(datapoints$x)) {
             datapoints$x = as.factor(datapoints$x)
@@ -80,10 +80,6 @@ data_ribbon = function(ribbon.alpha = NULL) {
         } else {
             xlabs = NULL
         }
-
-        # Handle ordering based on by and facet variables
-        null_by = length(unique(datapoints$by)) == 1
-        null_facet = length(unique(datapoints$facet)) == 1
 
         if (null_by && null_facet) {
             xord = order(datapoints$x)

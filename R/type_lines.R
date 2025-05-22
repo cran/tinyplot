@@ -24,15 +24,17 @@ type_lines = function(type = "l") {
 
 
 draw_lines = function(type = "l") {
-    fun = function(ix, iy, icol, ipch, ilty, ilwd, ...) {
+    fun = function(ix, iy, icol, ipch, ibg, ilty, ilwd, cex = 1, ...) {
         lines(
             x = ix,
             y = iy,
             col = icol,
             type = type,
             pch = ipch,
+            bg = ibg,
             lty = ilty,
-            lwd = ilwd
+            lwd = ilwd,
+            cex = cex
         )
     }
     return(fun)

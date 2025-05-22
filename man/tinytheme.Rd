@@ -66,7 +66,6 @@ or main titles that contain "\\n").
 }
 }
 \examples{
-
 # Reusable plot function
 p = function() tinyplot(
   lat ~ long | depth, data = quakes,
@@ -85,6 +84,10 @@ p()
          
 # Customize the theme by overriding default settings
 tinytheme("bw", fg = "green", font.main = 2, font.sub = 3, family = "Palatino")
+p()
+
+# Another custom theme example
+tinytheme("bw", font.main = 2, col.axis = "darkcyan", family = "HersheyScript")
 p()
 
 # Aside: One or two specialized themes are only meant for certain plot types

@@ -54,7 +54,6 @@
 #' @seealso [`tpar`] which does the heavy lifting under the hood.
 #'
 #' @examples
-#' 
 #' # Reusable plot function
 #' p = function() tinyplot(
 #'   lat ~ long | depth, data = quakes,
@@ -73,6 +72,10 @@
 #'          
 #' # Customize the theme by overriding default settings
 #' tinytheme("bw", fg = "green", font.main = 2, font.sub = 3, family = "Palatino")
+#' p()
+#' 
+#' # Another custom theme example
+#' tinytheme("bw", font.main = 2, col.axis = "darkcyan", family = "HersheyScript")
 #' p()
 #' 
 #' # Aside: One or two specialized themes are only meant for certain plot types
@@ -208,7 +211,7 @@ theme_default = list(
   mar = c(5.1, 4.1, 4.1, 2.1), ## test
   mgp = par("mgp"),
   # palette.qualitative = "R4",
-  # palette.sequential = "ag_Sunset",
+  # palette.sequential = "Viridis",
   pch = par("pch"), # 1,
   side.sub = 1,
   tck = NA,
