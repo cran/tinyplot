@@ -1,8 +1,8 @@
-8040d48fbcf5416f908eab4ca3120deb *DESCRIPTION
+03c2f03e7fc04a5fed82977a6ebd860e *DESCRIPTION
 5f3753f7c6f935d06f50386e08a190e9 *NAMESPACE
-cfa9bf8fca3f8166fb567b5a78bf1630 *NEWS.md
+c2146caa21a62381bb2c5a3c3de106fb *NEWS.md
 9f170eb1b22124ec05ae4d82dabbfc21 *R/assertions.R
-d2cc33daf1988e58961f61cc3b19a1d9 *R/by_aesthetics.R
+faf2eb9f03057cd531ffed1d4df760c3 *R/by_aesthetics.R
 4192ed47acc6147f467b1da041980b4a *R/draw_legend.R
 867823f937f4eddcd43b66e0bd787105 *R/facet.R
 0eee7a150611fbfc7a168224eb759c13 *R/get_saved_par.R
@@ -13,7 +13,7 @@ acbf1c213f21d811eac9985f74fbaf20 *R/setup_device.R
 9e749f32a619ce7328f1f23d3a3be67e *R/tinyformula.R
 41ce29ab4af82ccd549e4b63966903f5 *R/tinylabel.R
 68e6db6fa8aa24fe818cefd1cad7b674 *R/tinyplot-package.R
-5c79225cf00db187af58d2a554f40c69 *R/tinyplot.R
+fa014870f6da42f4503da227a2a07b71 *R/tinyplot.R
 a4129db51adaead1e28a08339cc31dbc *R/tinyplot_add.R
 9afe233dc64a7ad431625db5aaaf2b7f *R/tinytheme.R
 ed38111bc71ebb5b49fd7892ac0c1b23 *R/tpar.R
@@ -23,7 +23,7 @@ b5ddef58373dc40c8d47e3a5b36c5174 *R/type_barplot.R
 e1375cb48ac0d5c5f06c92decaed021c *R/type_boxplot.R
 3815f980ce74b6c359f5558c10ee4d9d *R/type_density.R
 b08806ec48289fe2c6e23934ef2045a6 *R/type_errorbar.R
-c9a8b5033be68523cf0de414296a9f4c *R/type_function.R
+596262ceef4f267d53fa64798ced482f *R/type_function.R
 8307b2a4670963129689ace5b806551a *R/type_glm.R
 ad478d704c7351aa33eaa88e9ce7728f *R/type_histogram.R
 92ca6194904acd78eae2e1a26365fc3f *R/type_hline.R
@@ -49,7 +49,8 @@ f03abd83b84281da6525e6a70bcd90f1 *R/type_spline.R
 3612da5277122a1b83d0fbe7d96cb945 *R/type_vline.R
 4d17d281558fb9fc7db63c5da2699848 *R/utils.R
 b57318965df0c47ede2f744cb77b6893 *R/zzz.R
-8304ba74ffbbacfd9b069b55a88dbcec *README.md
+a74d92dc3bfb724f4a497bcc793b6c59 *README.md
+069ea812a21360a6682ed2620942b993 *inst/CITATION
 bf8ed6091545b9cd5d319852d3dd4963 *man/ci.Rd
 5bc2d8851dcfa47093bc4b62218f843d *man/draw_legend.Rd
 134686dbb21eebcdd60ecf914c972419 *man/facet.Rd
@@ -58,11 +59,10 @@ d210eebd8632b3d015e8844e2508375d *man/figures/README-quickstart2-1.png
 cf7d88c91ff1e12cbf2c4479f2963635 *man/figures/README-quickstart4-1.png
 cf53b06fb9e7a166ded95281be6e764f *man/figures/README-quickstart5-1.png
 39a7238314f8edf5a3979678b1e21e87 *man/figures/README-quickstart_theme-1.png
-886604dac26545114c291c30ee28113b *man/figures/logo.png
 7fd9b69f9a680054b7b5db9ab3b795cd *man/get_saved_par.Rd
 0a40e07f1a72e36f422c82eb8ab7ee6e *man/tinyAxis.Rd
 3a6b54c287d52a807ab1bfaa5e4fec89 *man/tinylabel.Rd
-e1a1e31926a8ea06ce22a4816f1ed7b5 *man/tinyplot-package.Rd
+0e0a8cba7cbb2ffc104f8955f946f443 *man/tinyplot-package.Rd
 f5fa11998479ea2c0b0435d8ffd3b921 *man/tinyplot.Rd
 54d8850cc2372b0e483ef8b5225ad0c3 *man/tinyplot_add.Rd
 d1b6a5d3efd5b673a8e2aa5ae79ae4b8 *man/tinytheme.Rd
@@ -72,7 +72,7 @@ cc23ffd42b88d8c0c7c34562232febbf *man/type_barplot.Rd
 0673ae6982a16d20aef96da685ac9192 *man/type_boxplot.Rd
 e00ed93421c0f9a360cc282e052a59ba *man/type_density.Rd
 dc0b4d002e7900c52982adb88bd22dce *man/type_errorbar.Rd
-872be388bcd85a594825c914c025729b *man/type_function.Rd
+e6e17da15cfa8550a12017866a3fa55e *man/type_function.Rd
 77bfd25ce26d3cf80ea5f37eb5d61a17 *man/type_glm.Rd
 5c6c96fe5efe60000c1b9febb8c782eb *man/type_histogram.Rd
 f1787f4843a4e66cedac396107c89939 *man/type_jitter.Rd
