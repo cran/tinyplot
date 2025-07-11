@@ -1,8 +1,8 @@
 Package: tinyplot
 Type: Package
 Title: Lightweight Extension of the Base R Graphics System
-Version: 0.4.1
-Date: 2025-06-02
+Version: 0.4.2
+Date: 2025-07-11
 Authors@R: 
   c(
     person(
@@ -38,14 +38,14 @@ Description: Lightweight extension of the base R graphics system, with support
 License: Apache License (>= 2)
 Depends: R (>= 4.0.0)
 Imports: graphics, grDevices, stats, tools, utils
-Suggests: altdoc (>= 0.5.0), fontquiver, png, rsvg, svglite (>= 2.2.0),
-        tinytest, tinysnapshot (>= 0.0.3), knitr
+Suggests: altdoc, fontquiver, png, rsvg, svglite (>= 2.2.0), tinytest,
+        tinysnapshot (>= 0.0.3), knitr
 Encoding: UTF-8
 RoxygenNote: 7.3.2
 URL: https://grantmcdermott.com/tinyplot/
 BugReports: https://github.com/grantmcdermott/tinyplot/issues
 NeedsCompilation: no
-Packaged: 2025-06-02 23:47:45 UTC; grant
+Packaged: 2025-07-11 21:57:33 UTC; gmcd
 Author: Grant McDermott [aut, cre] (ORCID:
     <https://orcid.org/0000-0001-7883-8573>),
   Vincent Arel-Bundock [aut] (ORCID:
@@ -54,4 +54,4 @@ Author: Grant McDermott [aut, cre] (ORCID:
   Etienne Bacher [ctb]
 Maintainer: Grant McDermott <gmcd@amazon.com>
 Repository: CRAN
-Date/Publication: 2025-06-03 02:10:02 UTC
+Date/Publication: 2025-07-11 22:20:02 UTC
