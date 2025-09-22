@@ -7,13 +7,6 @@
 .onLoad = function(libname, pkgname) {
   # https://stackoverflow.com/questions/12598242/global-variables-in-packages-in-r
   # https://stackoverflow.com/questions/49056642/r-how-to-make-variable-available-to-namespace-at-loading-time?noredirect=1&lq=1
-  init_environment()
-  init_tpar()
-  set_environment_variable(".saved_par_before", NULL)
-  set_environment_variable(".saved_par_after", NULL)
-  set_environment_variable(".saved_par_first", NULL)
-  set_environment_variable(".last_call", NULL)
-  set_environment_variable(".tpar_hooks", NULL)
 
   globalVariables(c(
     "add",
@@ -21,6 +14,7 @@
     "axes",
     "by_continuous",
     "by_ordered",
+    "bubble_cex",
     "cex_fct_adj",
     "dots",
     "draw",
@@ -48,6 +42,7 @@
     "oyaxis",
     "ribbon.alpha",
     "split_data",
+    "tpars",
     "type",
     "x",
     "xaxl",

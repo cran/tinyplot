@@ -63,7 +63,7 @@ by_col = function(ngrps = 1L, col = NULL, palette = NULL, gradient = NULL, order
           "\nFewer colours ", ncolsstr, " provided than than there are groups ",
           ngrpsstr, ". Recycling to make up the shortfall."
         )
-        col = rep(col, length.out = ngrps)
+        col = rep_len(col, ngrps)
       }
   
     }
@@ -154,7 +154,7 @@ by_col = function(ngrps = 1L, col = NULL, palette = NULL, gradient = NULL, order
               "\nFewer colours ", ncolsstr, " provided than than there are groups ",
               ngrpsstr, ". Recycling to make up the shortfall."
             )
-            args = rep(args, length.out = ngrps)
+            args = rep_len(args, ngrps)
           }
         }
       } else {
@@ -188,7 +188,7 @@ by_col = function(ngrps = 1L, col = NULL, palette = NULL, gradient = NULL, order
               "\nFewer colours ", ncolsstr, " provided than than there are groups ",
               ngrpsstr, ". Recycling to make up the shortfall."
             )
-            args = rep(args, length.out = ngrps)
+            args = rep_len(args, ngrps)
           }
         }
       } else {
@@ -274,7 +274,7 @@ gen_pal_fun = function(pal, gradient = FALSE, alpha = NULL, n = NULL) {
 by_pch = function(ngrps, type, pch = NULL) {
   no_pch = FALSE
   if (identical(type, "text")) {
-    pch <- rep(15, ngrps)
+    pch = rep(15, ngrps)
   } else if (!type %in% c("p", "b", "o", "pointrange", "errorbar", "boxplot", "qq")) {
     no_pch = TRUE
     pch = NULL
@@ -392,6 +392,39 @@ by_lwd = function(ngrps, type, lwd = NULL) {
 
   return(lwd)
 }
+
+
+by_cex = function(ngrps, type, bubble = FALSE, cex = NULL) {
+
+  no_cex = FALSE
+  # special "by" convenience keyword
+  if (!is.null(cex) && length(cex) == 1 && cex == "by") {
+    no_cex = TRUE # skip checks below
+    cex = rescale_num(c(1:ngrps), to = c(1, 2.5))
+  } else if (is.null(cex)) {
+    no_cex = TRUE
+    # cex = NULL
+    # can't leave cex as NULL otherwise JIT cex_fct_adj adjustment in
+    # draw_legend() won't work later 
+    cex = 1
+    cex = rep(cex, ngrps)
+  }
+
+  # placehodler
+  if (bubble) no_cex = TRUE
+
+  if (!no_cex) {
+    if (!is.atomic(cex) || !is.vector(cex) || !is.numeric(cex) || (length(cex) != 1 && length(cex) != ngrps)) {
+      stop(sprintf("`cex` must either be `NULL`, or a numeric vector of length 1 or %s (no. of groups).", ngrps), call. = FALSE)
+    }
+    if (length(cex) == 1) {
+      cex = rep(cex, ngrps)
+    }
+  }
+
+  return(cex)
+}
+
 
 
 by_bg = function(

@@ -4,33 +4,95 @@ _If you are viewing this file on CRAN, please check the
 [latest NEWS](https://grantmcdermott.com/tinyplot/NEWS.html) on our website
 where the formatting is also better._
 
+## 0.5.0
+
+### New features
+
+- Added support for "bubble" scatter plots, allowing for point size scaling via
+  an appropriate `cex` argument (e.g., a continuous variable from your dataset).
+  Simultaneously enables dual-legend support for combined size + color mappings.
+  The updated `?type_points` documentation contains several examples.
+  (#433 @grantmcdermott)
+- Improved horizontal legend spacing, as well as multicolumn legend support. A
+  new example in the "Tips & tricks" vignette demonstrates the latter.
+  (#446 @grantmcdermott)
+- Univariate boxplots (without grouping variable) are now handled in
+  `tinyplot.default()`, so that `tinyplot(x, type = "boxplot")` and
+  `tinyplot(~ x, type = "boxplot")` essentially produce the same output as
+  `boxplot(x)`. (#454 @zeileis)
+- `type_errorbar()` and `type_point_range()` get a `dodge` argument.
+  (#461 @vincentarelbundock)
+- The new `tinyplot(..., theme = <theme>)` argument enables users to invoke
+  ephemeral themes as an alternative to the persistent themes that follow
+  `tinytheme(<theme>)`. (#484 @grantmcdermott)
+- Similarly to how the `x/yaxl` arguments allow for axes label adjustment, users
+  can now adjust the legend labels too with
+  `tinyplot(..., legend = list(labeller = <labeller>))`. The `labeller` argument
+  is passed to `tinylabel`; see the latter's help documentation for examples.
+  (#488 @grantmcdermott)
+
+### Bug fixes
+
+- `tinyplot_add()` now evaluates the additional call in the environment from
+  which `tinyplot_add()` is called so that it also works in non-base environments
+  such as in function definitions. Additionally, the call matching is now more
+  precise, matching only `tinyplot()` or `plt()` or their fully-qualified
+  counterparts (with `tinyplot::` prefix). Finally, the internals where these
+  calls are stored are streamlined, avoiding modifying the user-visible
+  `options()`. (#460 @zeileis)
+- Fixed several minor `tinylabel` bugs. (#468 @grantmcdermott)
+  - `tinylabel(x, "%")` is more precise, preserving unique levels of `x` through
+     automatic decimal level determination. Thanks to @etiennebacher for the
+     bug report in #449.
+  - Numeric labellers now work on appropriate `x`/`y` variables, even if the
+    plot type internally coerces it to factor (e.g., `"boxplot"`)
+- `type_text()` can now also deal with factor `x`/`y` variables by converting
+  them to numeric which helps to add text to barplots etc. (#470 @zeileis)
+- Fixed some `tinytheme()` bugs.
+  - Sourced (non-interactive) scripts with `tinytheme()` calls now inherit the
+    correct parameters and spacing. (#475, #481 @grantmcdermott)
+  - Custom `cex` theme settings are now reset correctly. (#482 @grantmcdermott)
+
+### Documentation
+
+- @grantmcdermott's _useR! 2025_ **tinyplot** presentation has been added to the
+  website as a standalone
+  [vignette](https://grantmcdermott.com/tinyplot/vignettes/useR2025/useR2025.html).
+
+### Internals
+
+- Move `altdoc` from `Suggests` to `Config/Needs/website`.
+  Thanks to @etiennebacher for the suggestion and to @eddelbuettel for help
+  with the CI implementation.
+- Add a `devcontainer.json` file for remote testing. (#480 @grantmcdermott) 
+
 ## 0.4.2
 
 ### New features
 
 - `type_text()` gains `xpd` and `srt` arguments for controlling text clipping
-  rotation, respectively. (#428 @grantmcdermott)
+  and rotation, respectively. (#428 @grantmcdermott)
 - Add `xlevels` (in addition to `ylevels`) in `type_spineplot()` for spine plots
   with categorical `x` variable. (#431 @zeileis)
 
 ### Bug fixes
 
-- Fixed a long-standing issue where resizing the plot window could cause
-  secondary plot layers---e.g., via `plt_add()`---to become misaligned in 
-  faceted plots (#313). This also resolves related alignment issues when adding
-  layers specifically within the Positron IDE
+- Fixed a long-standing issue whereby resizing the plot window would cause
+  secondary plot layers, e.g. from `plt_add()`, to become misaligned in 
+  faceted plots (#313). This also resolves a related alignment + layering issue
+  specific to the Positron IDE
   ([positron#7316](https://github.com/posit-dev/positron/issues/7316)).
-  **tinyplot** should now be fully compatible with Positron. (#438 @grantmcdermott)
+  As an aside, `tinyplot` should now be fully compatible with Positron. (#438 @grantmcdermott)
 - Fixed a bug that resulted in y-axis labels being coerced to numeric for
   `"p"`-alike plot types (including `"jitter"`) if `y` is a factor or character.
 - Safer handling of pre-plot hooks. Resolves an issue affecting how `tinyplot`
   behaves inside loops, particularly for themed plots where only the final plot
   was being drawn in Quarto/RMarkdown contexts. Special thanks to @hadley and @cderv
-  for helping us to debug. (#425 @vincentarelbundock)
+  for helping us debug. (#425 @vincentarelbundock)
 - The `xlevels` argument of `type_barplot()` could not handle numeric indexes correctly.
   (#431 @zeileis)
-- Better recycling logic for the family of straight line types (`type_hline`,
-  `type_vline`, `type_abline`) addresses several shortcomings. For example,
+- Addressed several shortcomings of the straight line family of types (`type_hline`,
+  `type_vline`, `type_abline`) through better recycling logic. For example,
   these types now work correctly across non-`by` facets. Simultaneously, users
   can also call them in a base plot layer, relaxing the requirement that they
   must be called as part of a subsequent plot layer via `tinyplot_add()`. (#422 @grantmcdermott)
