@@ -4,7 +4,79 @@ _If you are viewing this file on CRAN, please check the
 [latest NEWS](https://grantmcdermott.com/tinyplot/NEWS.html) on our website
 where the formatting is also better._
 
-## 0.5.0
+## v0.6.0
+
+### Breaking changes
+
+- "Breaking" change for internal development and custom types only:
+  The plot settings and parameters from individual `tinyplot` calls are now
+  stored in a dedicated (temporary) internal environment called `settings`,
+  which can be accessed and modified by type-specific functions. This change
+  will enable various internal enhancements, from improving the modularity and
+  maintainability of the `tinyplot` codebase, to reducing memory overhead and
+  performance (since we require fewer object copies). Looking ahead, we also
+  expect that it will make it easier to support new features and integration 
+  with downstream packages. Most `tinyplot` users should be unaffected by these
+  internal changes. However, users who have defined their own custom types will
+  need to make some adjustments to match the new `settings` logic; details are
+  provided in the updated `Types` vignette. (#473 @vincentarelbundock and @grantmcdermott)
+- The ancillary `fixed.pos` argument for dodged plots has been renamed to
+  `fixed.dodge` to avoid ambiguity, especially when passed down from a top-level
+  `tinyplot(...)` call. (#528 @grantmcdermott) 
+
+### New features
+
+- `type_text()` gains a `family` argument for controlling the font family,
+  separate to the main plot text elements. (#494 @grantmcdermott)
+- Expanded `dodge` argument capabilities and consistency for dealing with
+  overlapping groups:
+  - `dodge` argument now also supported by `type_lines()`, `type_points()`, and
+    `type_ribbon()`. (#522, #528 @grantmcdermott)
+  - We now enforce that numeric `dodge` values must be in the range `[0,1)`.
+    (#526 @grantmcdermott)
+  - Alongside numeric values, we now support a logical `dodge = TRUE` argument,
+    which gives automatic width spacing based on the number of groups. (#525 @grantmcdermott)
+  - Renamed ancillary argument `fixed.pos` -> `fixed.dodge`, per the breaking
+    change above. (#528 @grantmcdermott)
+
+### Bug fixes
+
+- For bubble plots, we now drop the minimum legend category (label) if it is
+  equal to 0. The previous behaviour was just an artifact of the `pretty` breaks
+  algorithm that we use to create discrete legend categories. The interior plot
+  elements, e.g. bubble points, are unaffected. (#498 @grantmcdermott)
+- `type_text()` now defaults to displaying `y` values if an explicit `labels`
+  arg is not provided, mirroring the behaviour of the base `text()` function.
+  (#501 @grantmcdermott)
+- Determining the last call of the `tinyplot()` generic in preparation for
+  `tinyplot_add()` is now more robust so that it is compatible with `do.call()`
+  again (reported by @FlorianSchwendinger). This is achieved by inspecting
+  the functions called rather than just their names. (#504 @zeileis)
+- Legend labels are now correct if `by` is logical. Thanks to @TCornulier for
+  the report. (#512 @grantmcdermott)
+- Axis limits are now correctly calculated for factor (and character) variables,
+  by coercing to numeric first. We also avoid the redundancy of re-calculating
+  axis limits for secondary plot layers. (#513 @grantmcdermott)
+- Fixed lazy evaluation bug where `legend` passed as a symbol through S3 methods
+  (e.g., `tinyplot.foo`) would fail. (#515 @grantmcdermott)
+- Added layers, particularly from `tinyplot_add()`, should now respect the
+  x-axis order of the original plot layer. This should ensure that we don't end
+  up with misaligned layers. For example, when ribbon is added on top of an
+  errorbar plot. (#517, #520, #523, #526 @grantmcdermott)
+- Custom axis titles work properly for one-sided (formula) bar plots. Thanks to
+  @lbelzile for the report in #423. (#527 @grantmcdermott)
+
+
+### Documentation
+
+- Add a "recession bars" section to the `Tips & tricks` vignette.
+  (#503 @grantmcdermott)
+
+- Point out more explicitly how the `draw` argument is evaluated within
+  `tinyplot()` and that it thus has access to the local definition to all
+  variables such as `x` and `y` etc. (#507 @zeileis)
+
+## v0.5.0
 
 ### New features
 
@@ -66,7 +138,7 @@ where the formatting is also better._
   with the CI implementation.
 - Add a `devcontainer.json` file for remote testing. (#480 @grantmcdermott) 
 
-## 0.4.2
+## v0.4.2
 
 ### New features
 
@@ -97,7 +169,7 @@ where the formatting is also better._
   can also call them in a base plot layer, relaxing the requirement that they
   must be called as part of a subsequent plot layer via `tinyplot_add()`. (#422 @grantmcdermott)
 
-## 0.4.1
+## v0.4.1
 
 ### Bug fixes
 
@@ -108,7 +180,7 @@ where the formatting is also better._
 
 - Revert minimum compatible R version to 4.0.0 (#416 @grantmcdermott)
 
-## 0.4.0
+## v0.4.0
 
 ### New features:
 
@@ -206,7 +278,7 @@ where the formatting is also better._
   logic was mostly an artifact of development inertia and this new nesting logic
   should simplify the creation of certain plot types. (#331 @grantmcdermott)
 
-## 0.3.0
+## v0.3.0
 
 ### New features
 
@@ -381,7 +453,7 @@ grouping variables (thanks to @strengjacke for reporting #213).
   - The new functional type processing system also means that each type now
     has its own help page (e.g. `?type_hist`, `type_ridge`, etc.)
 
-## 0.2.1
+## v0.2.1
 
 New Features:
 
@@ -430,7 +502,7 @@ Internals:
 - Revamped formula processing that allows for better sanity checking and
 edge-case logic. (#197 @zeileis)
 
-## 0.2.0
+## v0.2.0
 
 New features:
 
@@ -458,7 +530,7 @@ Misc:
 
 - Various documentation improvements.
 
-## 0.1.0
+## v0.1.0
 
 Our first CRAN submission! This v0.1.0 release includes the following new
 features and updates:
@@ -554,7 +626,7 @@ approach). (#145 @vincentarelbundock & @grantmcdermott)
 calculates `density` grid coords. (#150 @grantmcdermott)
 
 
-## 0.0.5
+## v0.0.5
 
 **IMPORTANT BREAKING CHANGE:**
 
@@ -598,7 +670,7 @@ see the following GitHub comment, as well as the discussion that preceded it:
 https://github.com/grantmcdermott/plot2/issues/22#issuecomment-1928472754
 
 
-##  0.0.4
+##  v0.0.4
 
 Website:
 
@@ -655,7 +727,7 @@ outer gap to outside of the graphics device unchanged. (#94 @grantmcdermott)
 - Fix bug where grid wasn't auto-expanding correctly for area plots. (#92
 @grantmcdermott)
 
-##  0.0.3
+##  v0.0.3
 
 Breaking changes:
 
@@ -693,7 +765,7 @@ Bug fixes:
 - Setting a global palette, e.g. `palette("ggplot2")` is now respected. (#44
 @grantmcdermott)
 
-##  0.0.2
+##  v0.0.2
 
 Breaking changes:
 
@@ -720,6 +792,6 @@ Project:
 - @vincentarelbundock and @zeileis have joined the project as core contributors.
 🎉
 
-##  0.0.1
+##  v0.0.1
 
 * Initial release on GitHub.

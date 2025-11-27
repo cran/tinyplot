@@ -1,12 +1,9 @@
 #' @rdname type_errorbar
 #' @export
-type_pointrange = function(dodge = 0, fixed.pos = FALSE) {
-  assert_numeric(dodge, len = 1, lower = 0)
-  assert_logical(fixed.pos)
-
+type_pointrange = function(dodge = 0, fixed.dodge = FALSE) {
   out = list(
     draw = draw_pointrange(),
-    data = data_pointrange(dodge = dodge, fixed.pos = fixed.pos),
+    data = data_pointrange(dodge = dodge, fixed.dodge = fixed.dodge),
     name = "p"
   )
   class(out) = "tinyplot_type"
@@ -16,19 +13,18 @@ type_pointrange = function(dodge = 0, fixed.pos = FALSE) {
 
 draw_pointrange = function() {
   fun = function(
-    ix,
-    iy,
-    ixmin,
-    iymin,
-    ixmax,
-    iymax,
-    icol,
-    ibg,
-    ipch,
-    ilwd,
-    icex,
-    ...
-  ) {
+      ix,
+      iy,
+      ixmin,
+      iymin,
+      ixmax,
+      iymax,
+      icol,
+      ibg,
+      ipch,
+      ilwd,
+      icex,
+      ...) {
     segments(
       x0 = ixmin,
       y0 = iymin,
@@ -51,8 +47,10 @@ draw_pointrange = function() {
 }
 
 
-data_pointrange = function(dodge, fixed.pos) {
-  fun = function(datapoints, xlabs, ...) {
+data_pointrange = function(dodge, fixed.dodge) {
+  fun = function(settings, ...) {
+    env2env(settings, environment(), c("datapoints", "xlabs"))
+
     if (is.character(datapoints$x)) {
       datapoints$x = as.factor(datapoints$x)
     }
@@ -69,35 +67,15 @@ data_pointrange = function(dodge, fixed.pos) {
 
     # dodge
     if (dodge != 0) {
-      if (fixed.pos) {
-        n = nlevels(datapoints$by)
-        d = cumsum(rep(dodge, n))
-        d = d - mean(d)
-        x_adj = d[as.integer(datapoints$by)]
-        datapoints$x = datapoints$x + x_adj
-        datapoints$xmin = datapoints$xmin + x_adj
-        datapoints$xmax = datapoints$xmax + x_adj
-      } else {
-        xuniq = unique(datapoints$x)
-        for (i in seq_along(xuniq)) {
-          idx = which(datapoints$x == xuniq[i])
-          n = length(idx)
-          d = cumsum(rep(dodge, n))
-          d = d - mean(d)
-          datapoints$x[idx] = datapoints$x[idx] + d
-          datapoints$xmin[idx] = datapoints$xmin[idx] + d
-          datapoints$xmax[idx] = datapoints$xmax[idx] + d
-        }
-      }
+      datapoints = dodge_positions(datapoints, dodge, fixed.dodge)
     }
 
-    out = list(
-      x = datapoints$x,
-      xlabs = xlabs,
-      datapoints = datapoints
-    )
-
-    return(out)
+    x = datapoints$x
+    env2env(environment(), settings, c(
+      "x",
+      "xlabs",
+      "datapoints"
+    ))
   }
   return(fun)
 }

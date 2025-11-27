@@ -2,23 +2,17 @@
 #'
 #' @description Type function(s) for producing error bar and pointrange plots.
 #'
-#' @param dodge Numeric value (>= 0) for dodging of overlapping `by` groups.
-#'   Dodging is scaled relative to the x-axis tick locations (i.e., unique
-#'   levels of `x`). For example, `dodge = 0.5` would place the outermost dodged
-#'   groups exactly midway the between axis ticks. Default value is 0 (no
-#'   dodging).
-#' @param fixed.pos Logical indicating whether dodged groups should retain a
-#'   fixed relative position based on their group value. Relevant for `x`
-#'   categories that only have a subset of the total number of groups. Defaults
-#'   to `FALSE`, in which case dodging is based on the number of unique groups
-#'   present in that `x` category alone. See Examples.
+#' @inheritParams dodge_positions
 #' @inheritParams graphics::arrows
 #' @examples
+#' tinytheme("basic")
+#' 
+#' #
+#' ## Basic coefficient plot(s)
+#' 
 #' mod = lm(mpg ~ wt * factor(am), mtcars)
 #' coefs = data.frame(names(coef(mod)), coef(mod), confint(mod))
 #' colnames(coefs) = c("term", "est", "lwr", "upr")
-#'
-#' op = tpar(pch = 19)
 #'
 #' # "errorbar" and "pointrange" type convenience strings
 #' tinyplot(est ~ term, ymin = lwr, ymax = upr, data = coefs, type = "errorbar")
@@ -28,45 +22,74 @@
 #' tinyplot(est ~ term, ymin = lwr, ymax = upr, data = coefs,
 #'          type = type_errorbar(length = 0.2))
 #'
-#' # display three models side-by-side with dodging
+#' #
+#' ## Flipped plots
+#' 
+#' # For flipped errobar / pointrange plots, it is recommended to use a dynamic
+#' # theme that applies horizontal axis tick labels
+#'
+#' tinytheme("classic")
+#' tinyplot(est ~ term, ymin = lwr, ymax = upr, data = coefs, type = "errorbar",
+#'          flip = TRUE)
+#' tinyplot_add(type = 'vline', lty = 2)
+#' 
+#' tinytheme("basic") # back to basic theme for the remaining examples
+#' 
+#' #
+#' ## Dodging groups
 #'
 #' models = list(
-#'     "Model A" = lm(mpg ~ wt + cyl, data = mtcars),
-#'     "Model B" = lm(mpg ~ wt + hp + cyl, data = mtcars),
-#'     "Model C" = lm(mpg ~ wt, data = mtcars)
+#'     "Model A" = lm(mpg ~ wt, data = mtcars),
+#'     "Model B" = lm(mpg ~ wt + cyl, data = mtcars),
+#'     "Model C" = lm(mpg ~ wt + cyl + hp, data = mtcars)
 #' )
 #'
-#' results = lapply(names(models), function(m) {
+#' models = do.call(
+#'   rbind,
+#'   lapply(names(models), function(m) {
 #'     data.frame(
-#'         model = m,
-#'         term = names(coef(models[[m]])),
-#'         estimate = coef(models[[m]]),
-#'         setNames(data.frame(confint(models[[m]])), c("conf.low", "conf.high"))
+#'       model = m,
+#'       term = names(coef(models[[m]])),
+#'       estimate = coef(models[[m]]),
+#'       setNames(data.frame(confint(models[[m]])), c("conf.low", "conf.high"))
 #'     )
-#' })
-#' results = do.call(rbind, results)
+#'   })
+#' )
 #'
 #' tinyplot(estimate ~ term | model,
 #'          ymin = conf.low, ymax = conf.high,
-#'          data = results,
-#'          type = type_pointrange(dodge = 0.2))
+#'          data = models,
+#'          type = type_pointrange(dodge = 0.1))
 #'
-#' # Note that the default dodged position is based solely on the number of
-#' # groups (here: models) available to each coefficient term. To fix the
-#' # position consistently across all terms, use `fixed.pos = TRUE`.
+#' # Aside 1: relative vs fixed dodge
+#' #  The default dodge position is based on the unique groups (here: models)
+#' #  available to each x value (here: coefficient term). To "fix" the dodge
+#' #  position across all x values, use `fixed.dodge = TRUE`.
 #'
 #' tinyplot(estimate ~ term | model,
 #'          ymin = conf.low, ymax = conf.high,
-#'          data = results,
-#'          type = type_pointrange(dodge = 0.2, fixed.pos = TRUE))
+#'          data = models,
+#'          type = type_pointrange(dodge = 0.1, fixed.dodge = TRUE))
+#' 
+#' # Aside 2: layering
+#' #  For layering on top of dodged plots, rather pass the dodging arguments
+#' #  through the top-level call if you'd like the dodging behaviour to be
+#' #  inherited automatically by the added layers.
 #'
-#' tpar(op)
+#' tinyplot(estimate ~ term | model,
+#'          ymin = conf.low, ymax = conf.high,
+#'          data = models,
+#'          type = "pointrange",
+#'          dodge = 0.1, fixed.dodge = TRUE)
+#' tinyplot_add(type = "l", lty = 2)
+#'
+#' tinytheme() # reset theme
 #'
 #' @export
-type_errorbar = function(length = 0.05, dodge = 0, fixed.pos = FALSE) {
+type_errorbar = function(length = 0.05, dodge = 0, fixed.dodge = FALSE) {
     out = list(
         draw = draw_errorbar(length = length),
-        data = data_pointrange(dodge = dodge, fixed.pos = fixed.pos),
+        data = data_pointrange(dodge = dodge, fixed.dodge = fixed.dodge),
         name = "p"
     )
     class(out) = "tinyplot_type"

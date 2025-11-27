@@ -78,14 +78,21 @@ type_barplot = function(width = 5/6, beside = FALSE, center = FALSE, FUN = NULL,
 
 #' @importFrom stats aggregate
 data_barplot = function(width = 5/6, beside = FALSE, center = FALSE, FUN = NULL, xlevels = NULL, xaxlabels = NULL, drop.zeros = FALSE) {
-    fun = function(datapoints, col, bg, lty, lwd, palette, xlab = NULL, ylab = NULL, xlim = NULL, ylim = NULL, xaxt = NULL, yaxl = NULL, yaxt = NULL, axes = TRUE, null_by, facet_by, ...) {
+    fun = function(settings, ...) {
+        env2env(
+          settings,
+          environment(),
+          c(
+            "datapoints", "null_by", "facet_by",
+            "xlab", "ylab", "xlim", "ylim", "yaxl", "xaxt",
+            "null_palette", "col", "bg"
+          )
+        )
 
-        
         ## tabulate/aggregate datapoints
         if (is.null(datapoints$y)) {
-          xlab = ylab
-          ylab = "Count"
-          
+          if (is.null(xlab) || xlab == "Index") xlab = ylab
+          if (is.null(settings$y_dep) && is.null(ylab)) ylab = "Count"
           datapoints$y = numeric(nrow(datapoints))          
           if (!is.null(FUN)) warning("without 'y' variable 'FUN' specification is ignored")
           FUN = length
@@ -131,7 +138,7 @@ data_barplot = function(width = 5/6, beside = FALSE, center = FALSE, FUN = NULL,
 
         ## default color palette
         ngrps = length(unique(datapoints$by))
-        if (ngrps == 1L && is.null(palette)) {
+        if (ngrps == 1L && null_palette) {
           if (is.null(col)) col = par("fg")
           if (is.null(bg)) bg = "grey"
         } else {
@@ -186,25 +193,28 @@ data_barplot = function(width = 5/6, beside = FALSE, center = FALSE, FUN = NULL,
             yaxl = paste0("abs_", yaxl)
           }
         }
-        
-        out = list(
-          datapoints = datapoints,
-          xlab = xlab,
-          ylab = ylab,
-          xlim = xlim,
-          ylim = ylim,
-          axes = FALSE, #FIXME
-          axes = TRUE,
-          xlabs = xlabs, 
-          frame.plot = FALSE,
-          xaxs = "r",
-          xaxt = if (xaxt == "s") "l" else xaxt,
-          yaxl = yaxl,
-          yaxs = "i",
-          col = col,
-          bg = bg
-        )
-        return(out)
+
+        axes = TRUE
+        frame.plot = FALSE
+        xaxs = "r"
+        xaxt = if (xaxt == "s") "l" else xaxt
+        yaxs = "i"
+        env2env(environment(), settings, c(
+          "datapoints",
+          "xlab",
+          "ylab",
+          "xlim",
+          "ylim",
+          "axes",
+          "xlabs",
+          "frame.plot",
+          "xaxs",
+          "xaxt",
+          "yaxl",
+          "yaxs",
+          "col",
+          "bg"
+        ))
     }
     return(fun)
 }
