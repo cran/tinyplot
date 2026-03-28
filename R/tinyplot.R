@@ -692,12 +692,18 @@ tinyplot.default = function(
     } else {
       warning('Argument `theme` must be a character of length 1 (e.g. "clean"), or a list. Ignoring.')
     }
-    dtheme = theme_default
-    otheme = opar[names(dtheme)]
-
-    on.exit(do.call(tinytheme, otheme), add = TRUE)
+    if (is.character(theme) && theme == "default") {
+      # Reset mar to pre-theme value so legend margin adjustment isn't
+      # clobbered. Only needed for "default" theme which uses hook = FALSE
+      # and thus sets par(mar) immediately. (#557)
+      par(mar = opar$mar)
+      on.exit(init_tpar(rm_hook = TRUE), add = TRUE)
+    } else {
+      dtheme = theme_default
+      otheme = opar[names(dtheme)]
+      on.exit(do.call(tinytheme, otheme), add = TRUE)
+    }
   }
-
 
   #
   ## settings container -----
@@ -733,6 +739,9 @@ tinyplot.default = function(
 
     # type-specific settings
     bubble        = FALSE,
+    bubble_pch    = NULL,
+    bubble_alpha  = NULL,
+    bubble_bg_alpha = NULL,
     ygroup        = NULL,  # for type_ridge()
 
     # data points and labels
@@ -767,9 +776,7 @@ tinyplot.default = function(
     null_ylim     = is.null(ylim),
     # when palette functions need pre-processing this check raises error
     null_palette  = tryCatch(is.null(palette), error = function(e) FALSE),
-    was_area_type = identical(type, "area"),  # mostly for legend
-    x_by          = identical(x, by), # for "boxplot", "spineplot" and "ridges"
-
+    x_by          = identical(x, by), # for "boxplot", "spineplot" and "ridge"
 
     # unevaluated expressions with side effects
     draw          = substitute(draw),
@@ -794,10 +801,13 @@ tinyplot.default = function(
     ribbon.alpha  = sanitize_ribbon_alpha(NULL),
 
     # misc
-    flip          = flip,
-    dodge         = NULL,
+    add           = add,
     by            = by,
+    dodge         = NULL,
     dots          = dots,
+    flip          = flip,
+    group_offsets = NULL,
+    offsets_axis  = NULL,
     type_info     = list() # pass type-specific info from type_data to type_draw
   )
 
@@ -872,6 +882,8 @@ tinyplot.default = function(
   # ensure axis aligment of any added layers
   if (!add) {
     assign("xlabs_orig", settings[["xlabs"]], envir = get(".tinyplot_env", envir = parent.env(environment())))
+    assign(".group_offsets", settings[["group_offsets"]], envir = get(".tinyplot_env", envir = parent.env(environment())))
+    assign(".offsets_axis", settings[["offsets_axis"]], envir = get(".tinyplot_env", envir = parent.env(environment())))
   } else {
     align_layer(settings)
   }
@@ -884,10 +896,10 @@ tinyplot.default = function(
   ## bubble plot -----
   #
   
-  # catch some simple aesthetics for bubble plots before the standard "by"
-  # grouping sanitizers (actually: will only be used for dual_legend plots but
-  # easiest to assign/determine now)
-  sanitize_bubble(settings)
+  # Transform cex values for bubble charts. Handles size transformation, legend
+  # gotchas, and aesthetic sanitization.
+  # Currently limited to "p" and "text" types, but could expand to others.
+  bubble(settings)
 
 
   #
@@ -910,85 +922,24 @@ tinyplot.default = function(
   #
   ## aesthetics by group -----
   #
+  
   by_aesthetics(settings)
-
-
-  #
-  ## make settings available in the environment directly -----
-  #
-  env2env(settings, environment())
 
 
   #
   ## legends -----
   #
   
-  # legend labels
-  ncolors = length(col)
-  lgnd_labs = rep(NA, times = ncolors)
-  if (isTRUE(by_continuous)) {
-    ## Identify the pretty break points for our labels
-    nlabs = 5
-    ncolors = length(col)
-    ubyvar = unique(by)
-    byvar_range = range(ubyvar)
-    pbyvar = pretty(byvar_range, n = nlabs)
-    pbyvar = pbyvar[pbyvar >= byvar_range[1] & pbyvar <= byvar_range[2]]
-    # optional thinning
-    if (length(ubyvar) == 2 && all(ubyvar %in% pbyvar)) {
-      pbyvar = ubyvar
-    } else if (length(pbyvar) > nlabs) {
-      pbyvar = pbyvar[seq_along(pbyvar) %% 2 == 0]
-    }
-    ## Find the (approximate) location of our pretty labels
-    pidx = rescale_num(c(byvar_range, pbyvar), to = c(1, ncolors))[-c(1:2)]
-    pidx = round(pidx)
-    lgnd_labs[pidx] = pbyvar
-  }
-  
-  # simple indicator variables for later use
-  has_legend = FALSE
-  dual_legend = bubble && !null_by && !isFALSE(legend)
-  lgnd_cex = NULL
+  prepare_legend(settings)
 
-  if (isFALSE(legend)) {
-    legend = "none"
-  } else if (isTRUE(legend)) {
-    legend = NULL
-  }
-  if (!is.null(legend) && is.character(legend) && legend == "none") {
-    legend_args[["x"]] = "none"
-    dual_legend = FALSE
-  }
+  #
+  ## make settings available in the environment directly -----
+  #
 
-  if (null_by) {
-    if (bubble && !dual_legend) {
-      legend_args[["title"]] = cex_dep
-      lgnd_labs = names(bubble_cex)
-      lgnd_cex = bubble_cex * cex_fct_adj
-    } else if (is.null(legend)) {
-      legend = "none"
-      legend_args[["x"]] = "none"
-    }
-  }
+  env2env(settings, environment())
 
-  if ((is.null(legend) || !is.character(legend) || legend != "none" || bubble) && !add) {
-    if (isFALSE(by_continuous) && (!bubble || dual_legend)) {
-      if (ngrps > 1) {
-        lgnd_labs = if (is.factor(datapoints$by)) levels(datapoints$by) else unique(datapoints$by)
-      } else {
-        lgnd_labs = ylab
-      }
-    }
-
-    has_sub = !is.null(sub)
-
-    if (isTRUE(was_area_type) || isTRUE(type %in% c("area", "rect", "hist", "histogram"))) {
-      legend_args[["pt.lwd"]] = par("lwd")
-      legend_args[["lty"]] = 0
-    }
-
-    if (!dual_legend) {
+  if (legend_draw_flag) {
+    if (!multi_legend) {
       ## simple case: single legend only
       if (is.null(lgnd_cex)) lgnd_cex = cex * cex_fct_adj
       draw_legend(
@@ -1007,61 +958,16 @@ tinyplot.default = function(
         has_sub = has_sub
       )
     } else {
-      ## dual legend case...
-
-      # sanitize_legend: processes legend arguments and returns standardized legend_args list
-      legend_args = sanitize_legend(legend, legend_args)
-
-      # legend 1: by (grouping) key
-      lgby = list(
-        # legend = lgby_pos,
-        legend_args = modifyList(
-          legend_args,
-          list(x.intersp = 1, y.intersp = 1),
-          keep.null = TRUE
-        ),
-        by_dep = by_dep,
-        lgnd_labs = lgnd_labs,
-        type = type,
-        pch = pch,
-        lty = lty,
-        lwd = lwd,
-        col = col,
-        bg = bg,
-        gradient = by_continuous,
-        # cex = cex * cex_fct_adj,
-        cex = lgnd_cex,
-        has_sub = has_sub
-      )
-      # legend 2: bubble (size) key
-      lgbub = list(
-        # legend = lgbub_pos,
-        legend_args = modifyList(
-          legend_args,
-          list(title = cex_dep, ncol = 1),
-          keep.null = TRUE
-        ),
-        # by_dep = cex_dep,
-        lgnd_labs = names(bubble_cex),
-        type = type,
-        pch = pch,
-        lty = lty,
-        lwd = lwd,
-        col = adjustcolor(par("col"), alpha.f = bubble_alpha),
-        bg = adjustcolor(par("col"), alpha.f = bubble_bg_alpha),
-        # gradient = by_continuous,
-        cex = bubble_cex * cex_fct_adj,
-        has_sub = has_sub,
-        draw = FALSE
-      )
-
-      # draw dual legend
+      ## multi-legend case...
+      prepare_legend_multi(settings)
+      env2env(settings, environment(), c("legend_args", "lgby", "lgbub"))
+      # draw multi-legend
       draw_multi_legend(list(lgby, lgbub), position = legend_args[["x"]])
 
     }
 
     has_legend = TRUE
-    } else if (legend_args[["x"]] == "none" && !add) {
+    } else if (legend_args[["x"]] == "none" && !isTRUE(add)) {
     omar = par("mar")
     ooma = par("oma")
     topmar_epsilon = 0.1
@@ -1431,13 +1337,16 @@ tinyplot.formula = function(
   m[[1L]] = quote(stats::model.frame)
   mf = eval.parent(m)
 
-  ## extract x
+  ## extract x (if any)
   x = tinyframe(tf$x, mf)
-  xnam = names(x)[[1L]]
-  if (length(names(x)) != 1L) warning(
-    paste("formula should specify exactly one x-variable, using:", xnam),
+  if (!is.null(x)) {
+    xnam = names(x)[[1L]]
+    if (length(names(x)) > 1L) warning(paste("formula should specify at most one x-variable, using:", xnam),
     "\nif you want to use arithmetic operators, make sure to wrap them inside I()")
-  x = x[[xnam]]
+    x = x[[xnam]]
+  } else {
+    xnam = NULL
+  }
 
   ## extract y (if any)
   y = tinyframe(tf$y, mf)
@@ -1446,6 +1355,8 @@ tinyplot.formula = function(
     if (length(names(y)) > 1L) warning(paste("formula should specify at most one y-variable, using:", ynam),
     "\nif you want to use arithmetic operators, make sure to wrap them inside I()")
     y = y[[ynam]]
+  } else {
+    ynam = NULL
   }
 
   ## extract by (if any)
@@ -1474,19 +1385,33 @@ tinyplot.formula = function(
   dens_type = !is.null(type) && (is.atomic(type) && identical(type, "density")) || (!is.atomic(type) && identical(type$name, "density"))
   hist_type = !is.null(type) && (is.atomic(type) && type %in% c("hist", "histogram")) || (!is.atomic(type) && identical(type$name, "histogram"))
   barp_type = !is.null(type) &&  (is.atomic(type) && identical(type, "barplot")) || (!is.atomic(type) && identical(type$name, "barplot"))
-  if (dens_type) {
+  if (is.null(x) && is.null(y)) {
+    # Exception: both x and y NULL (e.g., ~ 0 with type = "segments").
+    # Build labels from xmin/xmax/ymin/ymax names in the original call (m),
+    # since deparse(substitute()) in the default method would see mf[["..."]].
+    if (is.null(xlab) && !is.null(m[["xmin"]]) && !is.null(m[["xmax"]])) {
+      xlab = sprintf("[%s, %s]", deparse1(m[["xmin"]]), deparse1(m[["xmax"]]))
+    }
+    if (is.null(ylab) && !is.null(m[["ymin"]]) && !is.null(m[["ymax"]])) {
+      ylab = sprintf("[%s, %s]", deparse1(m[["ymin"]]), deparse1(m[["ymax"]]))
+    }
+  } else if (is.null(x) && !is.null(y)) {
+    # Exception: univariate y ~ 1 formulas. sanitize_type() will swap x/y and
+    # infer the type (histogram or barplot). Set xlab from the variable name
+    # and let sanitize_xylab() determine ylab after the type is known.
+    if (is.null(xlab)) xlab = ynam
+  } else if (dens_type) {
     # if (is.null(ylab)) ylab = "Density" ## rather assign ylab as part of internal type_density() logic
     if (is.null(xlab)) xlab = xnam
   } else if (hist_type) {
     # if (is.null(ylab)) ylab = "Frequency" ## rather assign ylab as part of internal type_histogram() logic
     if (is.null(xlab)) xlab = xnam
   } else if (is.null(y)) {
-    if (!barp_type) {
+    if (is.factor(x) || is.character(x) || barp_type) {
+      if (is.null(xlab)) xlab = xnam
+    } else {
       if (is.null(ylab)) ylab = xnam
       if (is.null(xlab)) xlab = "Index"
-    } else {
-      if (is.null(ylab)) ylab = "Count"
-      if (is.null(xlab)) xlab = xnam
     }
   } else {
     if (is.null(ylab)) ylab = ynam
