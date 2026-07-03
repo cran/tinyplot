@@ -41,20 +41,29 @@ draw_facet_window(
   yaxs,
   yaxb,
   yaxl,
+  rev_x = FALSE,
+  rev_y = FALSE,
   asp,
   log,
   dots,
   draw,
   grid,
   has_legend,
+  main,
+  sub,
+  cap,
   type,
+  xlab,
   x,
   xmax,
   xmin,
+  ylab,
   y,
   ymax,
   ymin,
-  tpars = NULL
+  tpars = NULL,
+  dynmar_computed = NULL,
+  dl_overshoot = 0
 )
 
 facet_layout(settings)

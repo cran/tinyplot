@@ -1,8 +1,8 @@
 Package: tinyplot
 Type: Package
 Title: Lightweight Extension of the Base R Graphics System
-Version: 0.6.1
-Date: 2026-03-26
+Version: 0.7.0
+Date: 2026-07-02
 Authors@R: 
   c(
     person(
@@ -42,11 +42,11 @@ Suggests: fontquiver, png, rsvg, svglite (>= 2.2.0), tinytest,
         tinysnapshot (>= 0.0.3), knitr
 Config/Needs/website: altdoc (>= 0.7.2), future.apply
 Encoding: UTF-8
-RoxygenNote: 7.3.3
 URL: https://grantmcdermott.com/tinyplot/
 BugReports: https://github.com/grantmcdermott/tinyplot/issues
+Config/roxygen2/version: 8.0.0
 NeedsCompilation: no
-Packaged: 2026-03-27 04:50:26 UTC; gmcd
+Packaged: 2026-07-03 02:03:38 UTC; gmcd
 Author: Grant McDermott [aut, cre] (ORCID:
     <https://orcid.org/0000-0001-7883-8573>),
   Vincent Arel-Bundock [aut] (ORCID:
@@ -55,4 +55,4 @@ Author: Grant McDermott [aut, cre] (ORCID:
   Etienne Bacher [ctb]
 Maintainer: Grant McDermott <contact@grantmcdermott.com>
 Repository: CRAN
-Date/Publication: 2026-03-28 06:10:16 UTC
+Date/Publication: 2026-07-03 06:40:02 UTC

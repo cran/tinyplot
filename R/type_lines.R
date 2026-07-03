@@ -12,6 +12,26 @@
 #' # Use `type_lines()` to pass extra arguments for customization
 #' tinyplot(circumference ~ age | Tree, data = Orange, type = type_lines(type = "s"))
 #' 
+#' # Direct legend labels are a good option for grouped lined plots (assuming
+#' # there aren't too many groups and the data are sorted along the x-axis)
+#' tinyplot(
+#'   circumference ~ age | Tree, data = Orange, type = "l",
+#'   legend = "direct"
+#' )
+#' 
+#' # Fancier version(s) that use a theme and repel overlapping labels
+#' Orange2 = transform(Orange, Tree = paste("Tree", Tree))
+#' tinyplot(
+#'   circumference ~ age | Tree, data = Orange2, type = "l",
+#'   legend = list("direct", repel = TRUE), # auto repel
+#'   theme = "socviz"
+#' )
+#' tinyplot(
+#'   circumference ~ age | Tree, data = Orange2, type = "l",
+#'   legend = list("direct", nudge_y = c("Tree 1" = 3, "Tree 3" = -5)), # manual
+#'   theme = "socviz"
+#' )
+#' 
 #' @export
 type_lines = function(type = "l", dodge = 0, fixed.dodge = FALSE) {
   out = list(
@@ -25,7 +45,6 @@ type_lines = function(type = "l", dodge = 0, fixed.dodge = FALSE) {
 
 
 data_lines = function(dodge = 0, fixed.dodge = FALSE) {
-  if (is.null(dodge) || dodge == 0) return(NULL)
   fun = function(settings, ...) {
     env2env(settings, environment(), c("datapoints", "xlabs"))
 
@@ -33,7 +52,8 @@ data_lines = function(dodge = 0, fixed.dodge = FALSE) {
       datapoints$x = as.factor(datapoints$x)
     }
     if (is.factor(datapoints$x)) {
-      xlvls = unique(datapoints$x)
+      # honour pre-ordered factors; otherwise fall back to first-appearance order
+      xlvls = if (is.ordered(datapoints$x)) levels(datapoints$x) else unique(datapoints$x)
       datapoints$x = factor(datapoints$x, levels = xlvls)
       xlabs = seq_along(xlvls)
       names(xlabs) = xlvls

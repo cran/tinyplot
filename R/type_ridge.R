@@ -30,6 +30,8 @@
 #' @param ylevels a character or numeric vector specifying in which order
 #' the levels of the y-variable should be plotted.
 #' @inheritParams stats::density
+#' @param bw the smoothing \code{\link[stats:bw.nrd]{bandwidth}} to be used,
+#'   see \code{\link[stats]{density}} for details and options.
 #' @param kernel a character string giving the smoothing kernel to be used. This
 #'   must partially match one of `"gaussian"`, `"rectangular"`, `"triangular"`,
 #'   `"epanechnikov"`, `"biweight"`, `"cosine"` or `"optcosine"`, with default
@@ -62,17 +64,22 @@
 #' of the ridge densities. Note that a singular value is expected; if multiple
 #' colors are provided then only the first will be used. This argument is mostly
 #' useful for the aesthetic effect of drawing a common outline color in
-#' combination with gradient fills. See Examples.
+#' combination with gradient fills. See Examples. If left unset here, the
+#' outline color can also be supplied via the top-level `tinyplot(..., col =)`
+#' call (the `type_ridge(col =)` argument takes precedence if both are given).
+#' When neither is supplied, the outline defaults to the active theme's
+#' `col.default` (see [tpar]), falling back to the first color of the theme's
+#' qualitative palette, or black if no theme is set.
 #' @param alpha Numeric in the range `[0,1]` for adjusting the alpha
 #' transparency of the density fills. In most cases, will default to a value of
 #' 1, i.e. fully opaque. But for some `by` grouped plots (excepting the special
 #' cases where `by==y` or `by==x`), will default to 0.6.
-#' 
+#'
 #' @section Technical note on gradient fills:
-#' 
+#'
 #' `tinyplot` uses two basic approaches for drawing gradient fills in ridge line
 #' plots, e.g., if `type_ridge(gradient = TRUE)`.
-#' 
+#'
 #' The first (and default) polygon-based approach involves dividing up the main
 #' density region into many smaller polygons along the x-axis. Each of these
 #' smaller polygons inherits a different color "segment" from the underlying
@@ -82,9 +89,9 @@
 #' is thus efficient from a plotting perspective and generally also performs
 #' well from an aesthetic perspective. However, it can occasionally produce
 #' undesirable plotting artifacts on some graphics devices---e.g., thin but
-#' visible vertical lines---if alpha transparency is being used at the same 
+#' visible vertical lines---if alpha transparency is being used at the same
 #' time.
-#' 
+#'
 #' For this reason, we also offer an alternative raster-based approach for
 #' gradient fills that users can invoke via
 #' `type_ridge(gradient = TRUE, raster = TRUE)`. The essential idea is that we
@@ -93,7 +100,7 @@
 #' color interpolation. The trade-off this time is potential smoothness
 #' artifacts around the top of the ridge densities at high resolutions, since we
 #' have converted a vector object into a raster object.
-#' 
+#'
 #' Again, we expect that the choice between these two approaches will only
 #' matter for ridge plots that combine gradient fills with alpha transparency
 #' (and on certain graphics devices). We recommend that users experiment to
@@ -106,29 +113,29 @@
 #'   Month2 = factor(month.name[Month], levels = month.name[5:9]),
 #'   Late = ifelse(Day > 15, "Late", "Early")
 #'   )
-#' 
+#'
 #' # default ridge plot (using the "ridge" convenience string)
 #' tinyplot(Month ~ Temp, data = aq, type = "ridge")
-#' 
+#'
 #' # for ridge plots, we recommend pairing with the dedicated theme(s), which
 #' # facilitate nicer y-axis labels, grid lines, etc.
-#' 
+#'
 #' tinytheme("ridge")
 #' tinyplot(Month ~ Temp, data = aq, type = "ridge")
-#' 
+#'
 #' tinytheme("ridge2") # removes the plot frame (but keeps x-axis line)
 #' tinyplot(Month ~ Temp, data = aq, type = "ridge")
-#' 
+#'
 #' # the "ridge(2)" themes are especially helpful for long y labels, due to
-#' # dyanmic plot adjustment
+#' # dynamic plot adjustment
 #' tinyplot(Month2 ~ Temp, data = aq, type = "ridge")
-#' 
+#'
 #' # pass customization arguments through type_ridge()... for example, use
 #' # the scale argument to change/avoid overlap of densities (more on scaling
 #' # further below)
-#' 
+#'
 #' tinyplot(Month ~ Temp, data = aq, type = type_ridge(scale = 1))
-#'   
+#'
 #' ## by grouping is also supported. two special cases of interest:
 #'
 #' # 1) by == y (color by y groups)
@@ -143,13 +150,13 @@
 #'
 #' # gradient coloring along the x-axis can also be invoked manually without
 #' # a legend (the next two tinyplot calls are equivalent)
-#' 
+#'
 #' # tinyplot(Month ~ Temp, data = aq, type = type_ridge(gradient = "agsunset"))
 #' tinyplot(Month ~ Temp, data = aq, type = type_ridge(gradient = TRUE))
-#' 
+#'
 #' # aside: when combining gradient fill with alpha transparency, it may be
 #' # better to use the raster-based approach (test on your graphics device)
-#' 
+#'
 #' tinyplot(Month ~ Temp, data = aq,
 #'   type = type_ridge(gradient = TRUE, alpha = 0.5),
 #'   main = "polygon fill (default)")
@@ -170,26 +177,26 @@
 #'
 #' # faceting also works, although we recommend switching (back) to the "ridge"
 #' # theme for faceted ridge plots
-#' 
+#'
 #' tinytheme("ridge")
 #' tinyplot(Month ~ Ozone, facet = ~ Late, data = aq,
 #'   type = type_ridge(gradient = TRUE))
-#' 
+#'
 #' ## use the joint.max argument to vary the maximum density used for
 #' ## determining relative scaling...
-#' 
+#'
 #' # jointly across all densities (default) vs. per facet
 #' tinyplot(Month ~ Temp, facet = ~ Late, data = aq,
 #'   type = type_ridge(scale = 1))
 #' tinyplot(Month ~ Temp, facet = ~ Late, data = aq,
 #'   type = type_ridge(scale = 1, joint.max = "facet"))
-#' 
+#'
 #' # jointly across all densities (default) vs. per by row
 #' tinyplot(Month ~ Temp | Late, data = aq,
 #'   type = type_ridge(scale = 1))
 #' tinyplot(Month ~ Temp | Late, data = aq,
 #'   type = type_ridge(scale = 1, joint.max = "by"))
-#'   
+#'
 #' # restore the default theme
 #' tinytheme()
 #'
@@ -211,7 +218,7 @@ type_ridge = function(
     col = NULL,
     alpha = NULL
     ) {
-  
+
   kernel = match.arg(kernel, c("gaussian", "epanechnikov", "rectangular", "triangular", "biweight", "cosine", "optcosine"))
   if (is.logical(joint.bw)) {
     joint.bw = ifelse(joint.bw, "mean", "none")
@@ -254,6 +261,12 @@ data_ridge = function(bw = "nrd0", adjust = 1, kernel = "gaussian", n = 512,
                       ) {
   fun = function(settings, ...) {
     env2env(settings, environment(), c("datapoints", "yaxt", "xaxt", "null_by"))
+
+    # `col` may arrive either via the top-level `tinyplot(..., col =)` call
+    # (stored in settings) or via the `type_ridge(col =)` constructor arg. The
+    # constructor arg takes precedence; otherwise fall back to the settings
+    # value so that a user-supplied `col` is respected. (#598)
+    if (is.null(col)) col = settings[["col"]]
 
     #  catch for special cases
     anyby = !null_by
@@ -393,8 +406,25 @@ data_ridge = function(bw = "nrd0", adjust = 1, kernel = "gaussian", n = 512,
       breaks[1L] = pmin(breaks[1L], xlim[1L])
       breaks[length(breaks)] = pmax(breaks[length(breaks)], xlim[2L])
     }
-    
-    if (is.null(col) && (!anyby || x_by)) col = "black"
+
+    # Single-group (or x_by) ridges: default the outline colour consistently
+    # with the other plot types. An explicit `col.default` wins; otherwise fall
+    # back to the first colour of the active qualitative palette (e.g. blue under
+    # "clean"), or base palette()[1] (black) when no theme palette is set. (#598)
+    if (is.null(col) && (!anyby || x_by)) {
+      col = get_tpar("col.default", default = NULL)
+      if (is.null(col)) {
+        pal_q = .tpar[["palette.qualitative"]]
+        col = if (!is.null(pal_q)) {
+          resolve_palette_spec(
+            pal_q, ngrps = 1L, gradient = FALSE, ordered = FALSE,
+            alpha = 1, adjustcolor = adjustcolor
+          )
+        } else {
+          palette()[1L]
+        }
+      }
+    }
 
     # For ridge themes without groups, a numeric bg (e.g. bg = 0.2) should
     # produce transparent gray, not a transparent palette colour. (#547)
@@ -425,13 +455,13 @@ data_ridge = function(bw = "nrd0", adjust = 1, kernel = "gaussian", n = 512,
       col = col,
       alpha = alpha
     )
-    
+
     # legend customizations
     settings$legend_args[["pch"]] = settings$legend_args[["pch"]] %||% 22
     settings$legend_args[["pt.cex"]] = settings$legend_args[["pt.cex"]] %||% 3.5
     settings$legend_args[["y.intersp"]] = settings$legend_args[["y.intersp"]] %||% 1.25
     settings$legend_args[["seg.len"]] = settings$legend_args[["seg.len"]] %||% 1.25
-    
+
     env2env(environment(), settings, c(
       "datapoints",
       "yaxt",
@@ -456,10 +486,15 @@ draw_ridge = function() {
     if (is.null(ibg)) {
       pal_q = .tpar[["palette.qualitative"]]
       # For non-ridge themes with a palette, derive fill from the first palette
-      # colour. We need palette.colors() here because the palette is still just
-      # a string name at this point (not yet resolved to colours). (#547)
+      # colour. The theme palette may be a name (e.g. "Tableau 10") or a vector
+      # of colours (e.g. the ipsum/socviz themes), so resolve it to an actual
+      # colour rather than assuming a name. (#547, #598)
       default_bg = if (!ridge_theme && !is.null(pal_q)) {
-        seq_palette(palette.colors(1, palette = pal_q), n = 2)[2]
+        pal_q1 = resolve_palette_spec(
+          pal_q, ngrps = 1L, gradient = FALSE, ordered = FALSE,
+          alpha = 1, adjustcolor = adjustcolor
+        )
+        seq_palette(pal_q1, n = 2)[2]
       } else {
         "gray"
       }
@@ -530,7 +565,7 @@ segmented_polygon = function(x, y, ymin = 0, breaks = range(x), probs = NULL, ma
 
   # ## recycle color (if necessary) rather use colorRampPalette below
   # col = rep_len(col, length(breaks) - 1L)
-  
+
   # Create individual polygons
   if (isFALSE(manbreaks)) {
     # Special case for length(breaks)==length(x). We can take a fully vectorised
@@ -563,21 +598,21 @@ segmented_polygon = function(x, y, ymin = 0, breaks = range(x), probs = NULL, ma
     # breaks will be ignored in the final polygon call anyway
     lwrmissings = breaks < x[bidx][1]
     if (any(lwrmissings[-1])) {
-      lwrmissings = breaks[lwrmissings] 
+      lwrmissings = breaks[lwrmissings]
       xxtra = c(rbind(lwrmissings[-length(lwrmissings)], lwrmissings[-1], lwrmissings[-1], lwrmissings[-length(lwrmissings)], NA))
       yytra = c(rbind(rep(ymin, length(lwrmissings)-1), ymin, ymin, ymin, NA))
       xx = c(xxtra, xx)
       yy = c(yytra, yy)
     }
   }
-  
+
   # Drop trailing NAs
   xx = xx[1:(length(xx)-1)]
   yy = yy[1:(length(yy)-1)]
-  
+
   if (!is.null(alpha)) col = adjustcolor(col, alpha.f = alpha)
-  
-  # Color ramp for cases where the breaks don't match 
+
+  # Color ramp for cases where the breaks don't match
   if (isFALSE(length(col)==1)) {
     col = rev(col) ## uncomment to make extreme cols dark
     if (isTRUE(manbreaks)) {
@@ -597,7 +632,7 @@ segmented_polygon = function(x, y, ymin = 0, breaks = range(x), probs = NULL, ma
     }
   }
   border = if (is.null(alpha)) col else adjustcolor(col = col, alpha.f = alpha/2)
-  
+
   ## draw all polygons
   polygon(xx, yy, col = col, border = border, lwd = 0.5)
 }
@@ -605,7 +640,7 @@ segmented_polygon = function(x, y, ymin = 0, breaks = range(x), probs = NULL, ma
 #' @importFrom graphics rasterImage
 #' @importFrom grDevices as.raster
 segmented_raster = function(x, y, ymin = 0, breaks = range(x), probs = NULL, manbreaks = FALSE, col = "lightgray", border = "transparent", alpha = NULL) {
-  ## set up raster matrix on x-grid and 500 y-pixels 
+  ## set up raster matrix on x-grid and 500 y-pixels
   n = length(x) - 1L
   m = 500L ## FIXME: hard-coded?
   r = matrix(1:n, ncol = n, nrow = m, byrow = TRUE)
@@ -654,5 +689,5 @@ quantile.density = function(x, probs = seq(0, 1, 0.25), ...) {
   cdf = cdf/cdf[n + 2L]
 
   ## approximate quantiles
-  approx(cdf, x, xout = probs, rule = 2)$y  
+  approx(cdf, x, xout = probs, rule = 2)$y
 }

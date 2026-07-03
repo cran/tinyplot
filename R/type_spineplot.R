@@ -8,6 +8,16 @@
 #'   levels of the `x` and `y` variables (if character) or the corresponding indexes
 #'   (if numeric) for the plot.
 #' @inheritParams graphics::spineplot
+#' @param lighten logical. For grouped spineplots where the `y` variable is
+#'   itself the grouping variable (i.e. `y == by`), should the fills use a
+#'   lighter, opaque tint of the series colour(s)? Default is `FALSE`, i.e. the
+#'   fills use the fully-saturated palette colour(s). (Unlike the other area
+#'   types such as [`type_barplot`], where lightening is the default, spineplot
+#'   tiles abut one another with no gap, so the darker saturated fills read
+#'   better against their matching border colours.) Set to `TRUE` to opt in to
+#'   the lighter tint. Note that `lighten` has no effect on other spineplot
+#'   displays (single-group or `x == by`), which always use a sequential shading
+#'   ramp of the base colour.
 #' @examples
 #' # "spineplot" type convenience string
 #' tinyplot(Species ~ Sepal.Width, data = iris, type = "spineplot")
@@ -17,59 +27,76 @@
 #' tinyplot(Species ~ Sepal.Width, data = iris)
 #' 
 #' # Use `type_spineplot()` to pass extra arguments for customization
-#' tinyplot(Species ~ Sepal.Width, data = iris, type = type_spineplot(breaks = 4))
+#' tinyplot(
+#'   Species ~ Sepal.Width, data = iris,
+#'   type = type_spineplot(breaks = 4)
+#' )
 #' 
-#' p = palette.colors(3, "Pastel 1")
-#' tinyplot(Species ~ Sepal.Width, data = iris, type = type_spineplot(breaks = 4, col = p))
-#' rm(p)
+#' # Passing custom colors to the y-axis categories
+#' tinyplot(
+#'   Species ~ Sepal.Width, data = iris,
+#'   type = type_spineplot(breaks = 4, col = palette.colors(3, "Pastel 1"))
+#' )
 #' 
 #' # More idiomatic tinyplot way of drawing the previous plot: use y == by
 #' tinyplot(
-#'   Species ~ Sepal.Width | Species, data = iris, type = type_spineplot(breaks = 4),
+#'   Species ~ Sepal.Width | Species, data = iris,
+#'   type = type_spineplot(breaks = 4),
 #'   palette = "Pastel 1", legend = FALSE
 #' )
 #' 
-#' # Grouped and faceted spineplots
-#' 
+#' ## Grouped and faceted spineplots
+#'
 #' ttnc = as.data.frame(Titanic)
 #' 
+#' # Note: The Titanic (ttnc) dataset is pre-tabulated, so we pass its frequency
+#' # counts via the top-level `weights` argument (accepted via non-standard
+#' # evaluation in the formula method).
 #' tinyplot(
 #'   Survived ~ Sex, facet = ~ Class, data = ttnc,
-#'   type = type_spineplot(weights = ttnc$Freq)
+#'   # type_spineplot(weights = ttnc$Freq), ## same thing but not NSE
+#'   type = "spineplot", weights = Freq
 #' )
 #' 
-#' # For grouped "by" spineplots, it's better visually to facet as well
+#' # Reorder x and y variable categories either by their character levels or
+#' # numeric indexes. (Here we combine a top-level `weights` with constructor-
+#' # level arguments passed through `type_spineplot()`.)
 #' tinyplot(
-#'   Survived ~ Sex | Class, facet = "by", data = ttnc,
-#'   type = type_spineplot(weights = ttnc$Freq)
+#'   Survived ~ Sex, facet = ~ Class, data = ttnc,
+#'   type = type_spineplot(xlevels = c("Female", "Male"), ylevels = 2:1),
+#'   weights = Freq
 #' )
-#' 
+#'
+#' # For (colour) grouped "by" spineplots, it's visually better to facet too
+#' tinyplot(
+#'   Survived ~ Sex | Class, data = ttnc,
+#'   facet = "by",
+#'   type = "spineplot", weights = Freq
+#' )
+#'
 #' # Fancier version. Note the smart inheritance of spacing etc.
 #' tinyplot(
-#'   Survived ~ Sex | Class, facet = "by", data = ttnc,
-#'   type = type_spineplot(weights = ttnc$Freq),
-#'   palette = "Dark 2", facet.args = list(nrow = 1), axes = "t"
+#'   Survived ~ Sex | Class, data = ttnc,
+#'   facet = "by", facet.args = list(nrow = 1),
+#'   type = "spineplot", weights = Freq,
+#'   theme = "void", axes = "t", lty = 0, legend = FALSE,
+#'   main = "Who survived the Titanic disaster?",
+#'   sub = "Frequencies by boarding class and sex"
 #' )
 #'
-#' # Reorder x and y variable categories either by their character levels or numeric indexes
-#' tinyplot(
-#'   Survived ~ Sex, facet = ~ Class, data = ttnc,
-#'   type = type_spineplot(weights = ttnc$Freq, xlevels = c("Female", "Male"), ylevels = 2:1)
-#' )
-#'
-#' # Note: It's possible to use "by" on its own (without faceting), but the
+#' # Aside: It's possible to use "by" on its own (without faceting), but the
 #' # overlaid result isn't great. We will likely overhaul this behaviour in a
 #' # future version of tinyplot...
 #' tinyplot(Survived ~ Sex | Class, data = ttnc,
-#'   type = type_spineplot(weights = ttnc$Freq), alpha = 0.3
+#'   type = "spineplot", weights = Freq, alpha = 0.3
 #' )
 #' 
 #' @export
-type_spineplot = function(breaks = NULL, tol.ylab = 0.05, off = NULL, xlevels = NULL, ylevels = NULL, col = NULL, xaxlabels = NULL, yaxlabels = NULL, weights = NULL) {
+type_spineplot = function(breaks = NULL, tol.ylab = 0.05, off = NULL, xlevels = NULL, ylevels = NULL, col = NULL, xaxlabels = NULL, yaxlabels = NULL, weights = NULL, lighten = FALSE) {
   col = col
   out = list(
-    data = data_spineplot(off = off, breaks = breaks, xlevels = xlevels, ylevels = ylevels, xaxlabels = xaxlabels, yaxlabels = yaxlabels, weights = weights),
-    draw = draw_spineplot(tol.ylab = tol.ylab, off = off, col = col, xaxlabels = xaxlabels, yaxlabels = yaxlabels),
+    data = data_spineplot(off = off, breaks = breaks, xlevels = xlevels, ylevels = ylevels, xaxlabels = xaxlabels, yaxlabels = yaxlabels, weights = weights, lighten = lighten),
+    draw = draw_spineplot(tol.ylab = tol.ylab, off = off, col = col, xaxlabels = xaxlabels, yaxlabels = yaxlabels, lighten = lighten),
     name = "spineplot"
   )
   class(out) = "tinyplot_type"
@@ -77,18 +104,20 @@ type_spineplot = function(breaks = NULL, tol.ylab = 0.05, off = NULL, xlevels = 
 }
 
 #' @importFrom grDevices nclass.Sturges
-data_spineplot = function(off = NULL, breaks = NULL, xlevels = xlevels, ylevels = ylevels, xaxlabels = NULL, yaxlabels = NULL, weights = NULL) {
+data_spineplot = function(off = NULL, breaks = NULL, xlevels = xlevels, ylevels = ylevels, xaxlabels = NULL, yaxlabels = NULL, weights = NULL, lighten = FALSE) {
     fun = function(settings, ...) {
-        env2env(settings, environment(), c("datapoints", "xlim", "ylim", "facet", "facet.args", "by", "xaxb", "yaxb", "null_by", "null_facet", "null_palette", "col", "bg", "axes", "xaxt", "yaxt"))
+        env2env(settings, environment(), c("datapoints", "xlim", "ylim", "facet", "facet.args", "by", "xaxb", "yaxb", "null_by", "null_facet", "col", "bg", "axes", "frame.plot", "xaxt", "yaxt", "lwd", "lty"))
+        settings[["lighten"]] = lighten
       
-        ## process weights
-        if (!is.null(weights)) {
-            ny = length(datapoints$y)
-            if (length(weights) != ny && length(weights) != 1L) {
-                stop(sprintf("'weights' must have either length 1 or %s", ny))
-            }
+        ## process weights: a top-level `weights` column (carried on datapoints
+        ## via NSE) takes precedence over the constructor-level `weights` arg.
+        ## Either way, unify into the `datapoints$weights` column and the local
+        ## `weights` vector that the break/range logic below relies on.
+        if (is.null(datapoints[["weights"]]) && !is.null(weights)) {
+            datapoints$weights = weights
         }
-        datapoints$weights = weights
+        weights = datapoints[["weights"]]
+        if (!is.null(weights)) settings$weights_used = TRUE
         
         ## process x variable
         if (is.factor(datapoints$x)) {
@@ -237,9 +266,6 @@ data_spineplot = function(off = NULL, breaks = NULL, xlevels = xlevels, ylevels 
         # catch for x_by / y/by
         if (isTRUE(x_by)) datapoints$by = factor(rep(xaxlabels, each = ny)) # each x label extends over ny rows
         if (isTRUE(y_by)) datapoints$by = factor(rep_len(yaxlabels, nrow(datapoints)))
-          
-        ## grayscale flag
-        grayscale = null_by && null_palette && is.null(.tpar[["palette.qualitative"]])
 
         x = c(datapoints$xmin, datapoints$xmax)
         y = c(datapoints$ymin, datapoints$ymax)
@@ -254,6 +280,11 @@ data_spineplot = function(off = NULL, breaks = NULL, xlevels = xlevels, ylevels 
         axes_orig = axes
         xaxt_orig = xaxt
         yaxt_orig = yaxt
+        # `frame.plot` defaults to TRUE for numeric-x spinograms (the outer box
+        # is drawn by draw_spineplot below, after the tiles); NULL/unset counts
+        # as TRUE. Preserve the user's choice before overwriting it, so the box
+        # honours the top-level `frame.plot` rather than the tile-border `lwd`.
+        frameplot_orig = !isFALSE(frame.plot)
 
         axes = FALSE
         frame.plot = FALSE
@@ -273,17 +304,19 @@ data_spineplot = function(off = NULL, breaks = NULL, xlevels = xlevels, ylevels 
           yaxlabels = yaxlabels,
           breaks = breaks,
           axes = axes_orig,
+          frame.plot = frameplot_orig,
           xaxt = xaxt_orig,
           yaxt = yaxt_orig,
-          grayscale = grayscale,
+          null_by = null_by,
           x_by = x_by,
           y_by = y_by
         )
         
         # legend customizations
+        # Mirror type_barplot()
+        settings$legend_args[["lty"]] = settings$legend_args[["lty"]] %||% 0
         settings$legend_args[["pch"]] = settings$legend_args[["pch"]] %||% 22
         settings$legend_args[["pt.cex"]] = settings$legend_args[["pt.cex"]] %||% 3.5
-        settings$legend_args[["pt.lwd"]] = settings$legend_args[["pt.lwd"]] %||% 0
         settings$legend_args[["y.intersp"]] = settings$legend_args[["y.intersp"]] %||% 1.25
         settings$legend_args[["seg.len"]] = settings$legend_args[["seg.len"]] %||% 1.25
         
@@ -297,8 +330,7 @@ data_spineplot = function(off = NULL, breaks = NULL, xlevels = xlevels, ylevels 
     return(fun)
 }
 
-#' @importFrom grDevices gray.colors
-draw_spineplot = function(tol.ylab = 0.05, off = NULL, col = NULL, xaxlabels = NULL, yaxlabels = NULL) {
+draw_spineplot = function(tol.ylab = 0.05, off = NULL, col = NULL, xaxlabels = NULL, yaxlabels = NULL, lighten = FALSE) {
     fun = function(ixmin, iymin, ixmax, iymax, ilty, ilwd, icol, ibg, 
                    flip,
                    facet_window_args,
@@ -314,25 +346,38 @@ draw_spineplot = function(tol.ylab = 0.05, off = NULL, col = NULL, xaxlabels = N
       nx = type_info[["nx"]]
       ny = type_info[["ny"]]
       x.categorical = type_info[["x.categorical"]]
-      grayscale = type_info[["grayscale"]]
+      null_by = type_info[["null_by"]]
       x_by = type_info[["x_by"]]
       y_by = type_info[["y_by"]]
       
       ## graphical parameters
       if (is.null(col)) {
-        if (is.null(ibg)) ibg = icol
         if (isFALSE(y_by)) {
-          ibg = if (isTRUE(grayscale)) gray.colors(ny) else seq_palette(ibg, ny)
+          # For single-group displays, use a neutral grey ramp (gray.colors)
+          # whenever the resolved seed colour is achromatic (e.g. the black
+          # default of the plain default or the "bw"/"ipsum" themes), so these
+          # are consistent regardless of whether a palette is declared -- the
+          # same principle as the single-group fill logic in by_bg(). For grouped
+          # displays we never switch to grayscale: each group (including one
+          # whose palette colour is black) follows the same seq_palette ramp so
+          # the fills stay in sync with the legend swatches.
+          if (is.null(ibg)) ibg = icol
+          gs = isTRUE(null_by) && is_achromatic(ibg)
+          ibg = seq_palette(ibg, ny, grayscale = gs)
+        } else {
+          # When the y variable is itself the grouping (`y_by`), each band is a
+          # group's palette colour. The fill is resolved once in prepare_legend()
+          # and arrives via `ibg` -- lightened to match the other area types
+          # (barplot/boxplot/violin) unless `lighten` is off (issue #646). Only
+          # fall back to lightening the group colour `icol` here if no fill was
+          # supplied (e.g. a standalone draw outside the legend pipeline).
+          if (is.null(ibg)) ibg = if (isTRUE(lighten)) lighten_fill(icol) else icol
         }
         ibg = rep_len(ibg, ny)
       } else {
         ibg = col
       }
-      
-      if (type_info[["xaxt"]] %in% c("l", "t", "n") &&
-          type_info[["yaxt"]] %in% c("l", "t", "n") &&
-          !all(c(type_info[["xaxt"]], type_info[["yaxt"]]) == "n")) ilwd = 0
-      
+
       rect(
           xleft = ixmin, ybottom = iymin, xright = ixmax, ytop = iymax,
           lty = ilty,
@@ -360,7 +405,10 @@ draw_spineplot = function(tol.ylab = 0.05, off = NULL, col = NULL, xaxlabels = N
           if (is_facet_position(if(flip) "bottom" else "right", ifacet, facet_window_args)) spine_axis(if (flip) 1 else 4,
               type = type_info[["yaxt"]], categorical = FALSE)
       }
-      if(!x.categorical && (is.null(ilwd) || ilwd > 0)) box()
+      # Outer box for numeric-x spinograms. This is a structural frame, so it
+      # follows the top-level `frame.plot` (via type_info) rather than the
+      # tile-border `lwd` -- otherwise `lwd = 0` would wrongly drop the box too.
+      if (!x.categorical && isTRUE(type_info[["frame.plot"]])) box()
       
     }
     return(fun)
@@ -397,28 +445,4 @@ spine_axis = function(side, ..., type = "standard", categorical = TRUE) {
         }
         do.call("axis", args)
     }
-}
-
-#' @importFrom grDevices col2rgb convertColor hcl
-to_hcl = function(x) {
-    x = t(col2rgb(x, alpha = TRUE)/255)
-    alpha = x[, 4]
-    x = x[, 1:3]
-    x = convertColor(x, from = "sRGB", to = "Luv")
-    x = cbind(H = atan2(x[, 3L], x[, 2L]) * 180/pi, C = sqrt(x[, 2L]^2 + x[, 3L]^2), L = x[, 1L])
-    x[is.na(x[, 1L]), 1L] = 0
-    x[x[, 1L] < 0, 1L] = x[x[, 1L] < 0, 1L] + 360
-    attr(x, "alpha") = alpha
-    return(x)
-}
-
-seq_palette = function(x, n, power = 1.5) {
-    x = drop(to_hcl(x[1L]))
-    alpha = attr(x, "alpha")
-    hcl(
-      h = x[1L],
-      c = seq.int(from = x[2L]^(1/power), to = 0, length.out = n + 1)[1L:n]^power,
-      l = 100 - seq.int(from = (100 - x[3L])^(1/power), to = pmin(8, (100 - x[3L])/2)^(1/power), length.out = n)^power,
-      alpha = alpha
-    )[1L:n]
 }

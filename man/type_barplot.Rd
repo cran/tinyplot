@@ -8,10 +8,12 @@ type_barplot(
   width = 5/6,
   beside = FALSE,
   center = FALSE,
+  offset = NULL,
   FUN = NULL,
   xlevels = NULL,
   xaxlabels = NULL,
-  drop.zeros = FALSE
+  drop.zeros = FALSE,
+  lighten = TRUE
 )
 }
 \arguments{
@@ -29,6 +31,22 @@ of an even number). Additionally it is possible to set \code{center = 2} or
 \code{center = 2.5} to indicate that centering should be after the second category
 or the mid-way in the third category, respectively.}
 
+\item{offset}{optional specification for shifting bar baselines, accepting
+one of two distinct forms. See the Examples for illustrations of both.
+\itemize{
+\item \emph{Positions} via an unnamed numeric scalar or vector. Bars start at the
+offset value(s) rather than zero, matched per x-level after any \code{xlevels}
+reordering (a scalar is applied to all bars). Useful for waterfall charts.
+The positional form cannot be combined with \code{center}.
+\item \emph{Category} via a character vector such as \code{offset = "Unsure"}, or a
+named numeric vector such as \code{offset = c(Unsure = 1.1)}. The named
+level(s) of the \code{by} grouping are "set aside", i.e. pulled out of the
+(optionally centered) stack and drawn as standalone bars. This is useful
+for diverging/Likert plots where a neutral category (e.g. "Unsure") is
+shown apart from the diverging stack. The category form requires a \code{by}
+grouping and \code{beside = FALSE}, but can be combined with \code{center}.
+}}
+
 \item{FUN}{a function to compute the summary statistic for \code{y} within each
 group of \code{x} in case of using a two-sided formula \code{y ~ x} (default: mean).}
 
@@ -42,6 +60,11 @@ defaulting to the levels of \code{x}.}
 \item{drop.zeros}{logical. Should bars with zero height be dropped? If set
 to \code{FALSE} (default) a zero height bar is still drawn for which the border
 lines will still be visible.}
+
+\item{lighten}{logical. Should the fills use a lighter, opaque tint of the
+series colour(s)? Default is \code{TRUE}, which keeps single- and multi-group
+displays consistent and lets the fill read cleanly over grid lines. Set to
+\code{FALSE} to use the fully-saturated palette colour(s) instead.}
 }
 \description{
 Type function for producing barplots. For formulas of type
@@ -55,7 +78,6 @@ using some function (default: mean).
 tinyplot(~ cyl, data = mtcars, type = "barplot")
 tinyplot(~ cyl | vs, data = mtcars, type = "barplot")
 tinyplot(~ cyl | vs, data = mtcars, type = "barplot", beside = TRUE)
-tinyplot(~ cyl | vs, data = mtcars, type = "barplot", beside = TRUE, fill = 0.2)
 
 # Reorder x variable categories either by their character levels or numeric indexes
 tinyplot(~ cyl, data = mtcars, type = "barplot", xlevels = c("8", "6", "4"))
@@ -65,26 +87,80 @@ tinyplot(~ cyl, data = mtcars, type = "barplot", xlevels = 3:1)
 # wouldn't work for `width`, since it would conflict with the top-level
 # `tinyplot(..., width = <width>)` argument. It's safer to pass these args
 # through the `type_barplot()` functional equivalent.
-tinyplot(~ cyl | vs, data = mtcars, fill = 0.2,
-  type = type_barplot(beside = TRUE, drop.zeros = TRUE, width = 0.65))
-
-tinytheme("clean2")
+tinyplot(
+  ~ cyl | vs, data = mtcars,
+  type = type_barplot(beside = TRUE, drop.zeros = TRUE, width = 0.65)
+)
 
 # Example for numeric y aggregated by x (default: FUN = mean) + facets
-tinyplot(extra ~ ID | group, facet = "by", data = sleep,
-  type = "barplot", fill = 0.6)
+tinyplot(
+  extra ~ ID | group, facet = "by", data = sleep,
+  type = "barplot",
+  theme = "clean2"
+)
 
 # Fancy frequency table:
-tinyplot(Freq ~ Sex | Survived, facet = ~ Class, data = as.data.frame(Titanic),
-  type = "barplot", facet.args = list(nrow = 1), flip = TRUE, fill = 0.6)
+tinyplot(
+  Freq ~ Sex | Survived, data = as.data.frame(Titanic),
+  facet = ~ Class, facet.args = list(nrow = 1),
+  type = "barplot", flip = TRUE,
+  theme = "clean2"
+)
 
-# Centered barplot for conditional proportions of hair color (black/brown vs.
-# red/blond) given eye color and sex
-tinytheme("clean2", palette.qualitative = c("black", "sienna", "indianred", "goldenrod"))
+# Centered barplot for conditional proportions of dark (black/brown) vs.
+# light (red/blond) hair color, conditional on eye color and sex.
+# Aside: use `lighten = FALSE` to avoid lightening the bar fill colors.
 hec = as.data.frame(proportions(HairEyeColor, 2:3))
-tinyplot(Freq ~ Eye | Hair, facet = ~ Sex, data = hec, type = "barplot",
-  center = TRUE, flip = TRUE, facet.args = list(ncol = 1), yaxl = "percent")
+hcols = c("black", "sienna", "indianred", "goldenrod")
+tinyplot(
+  Freq ~ Eye | Hair, data = hec,
+  facet = ~ Sex, facet.args = list(ncol = 1),
+  type = type_barplot(center = TRUE, lighten = FALSE),
+  flip = TRUE, yaxl = "percent",
+  theme = list("clean2", palette.qualitative = hcols)
+)
 
-tinytheme()
+# Use cases for the `offset` argument
+
+# 1. Waterfall plot
+d = data.frame(item = c("Sales", "Services", "Costs", "Returns", "TOTAL"),
+               value = c(100, 40, -80, -10, 50))
+d$item = factor(d$item, levels = d$item)
+d$offset = c(0, cumsum(d$value[1:3]), 0)
+tinyplot(
+  value ~ item | I(value < 0), data = d,
+  type = type_barplot(offset = d$offset, lighten = FALSE),
+  col = NA, # (optional: turn off border)
+  legend = FALSE
+)
+tinyplot_add(type = type_vline(4.5), lty = 2, col = "grey50")
+
+# 2. Diverging/Likert layout: a character (or named numeric) offset "sets
+# aside" the named category, pulling it out of the centered stack and drawing
+# it as a standalone bar. Here a neutral "Unsure" response is shown apart from
+# the diverging agree/disagree scale.
+lik = expand.grid(
+  question = c("Pay", "Workload", "Manager", "Culture"),
+  response = c("Strong disagree", "Disagree", "Agree", "Strong agree", "Unsure")
+)
+lik$response = factor(lik$response, levels = unique(lik$response))
+lik$share = c( # proportions summing to 1 within each question
+  .10, .25, .05, .15,
+  .20, .30, .15, .20,
+  .35, .20, .40, .30,
+  .25, .15, .35, .20,
+  .10, .10, .05, .15
+)
+# diverging palette: reds (disagree) -> blues (agree), grey for "Unsure"
+pal = c("#b2182b", "#ef8a62", "#67a9cf", "#2166ac", "grey")
+tinyplot(
+  share ~ question | response, data = lik,
+  type = type_barplot(center = TRUE, offset = "Unsure", lighten = FALSE),
+  flip = TRUE, xlab = NA, ylab = NA, yaxl = "percent",
+  legend = list("top!", title = FALSE),
+  theme = list("clean2", palette.qualitative = pal),
+  main = "Hypothetical Likert example with category offset"
+)
+tinyplot_add(type = "vline")
 
 }
