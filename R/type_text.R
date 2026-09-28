@@ -9,11 +9,11 @@
 #'   a top-level [`tinyplot`] argument, which additionally supports non-standard
 #'   evaluation against `data` and takes precedence if both are given. See
 #'   Examples.
-#' @param labeller A formatting function (or convenience string) passed to
-#'   [`tinylabel`] for formatting the `labels`. Useful for ensuring that the
-#'   text labels match the formatting of an axis, e.g. `labeller = "%"` to
-#'   display the labels as percentages. Default is `NULL`, i.e. no formatting.
-#'   See Examples.
+#' @param labeller A formatting function, convenience string, or dictionary
+#'   (named vector or list) passed to [`tinylabel`] for formatting or
+#'   relabelling the `labels`. Useful for ensuring that the text labels match
+#'   the formatting of an axis, e.g. `labeller = "%"` to display the labels as
+#'   percentages. Default is `NULL`, i.e. no formatting. See Examples.
 #' @param family The name of a font family. Default of `NULL` means that the
 #' family will be the same as the main plot text, following
 #' \code{\link[graphics]{par}}. Note that if a `family` argument is provided,
@@ -166,14 +166,30 @@ data_text = function(labels = NULL, labeller = NULL, clim = c(0.5, 2.5)) {
       labels = tinylabel(labels, labeller)
     }
     datapoints$labels = labels
+    # Collapse a categorical axis to its level positions, keeping the levels as
+    # the axis labels. (#730)
     if (is.factor(datapoints$x)) {
-      datapoints$x = as.numeric(datapoints$x)
+      xlvls = levels(datapoints$x)
+      xlabs = seq_along(xlvls)
+      names(xlabs) = xlvls
+      datapoints$x = as.integer(datapoints$x)
+      # More generous padding if categorical x-axis; better plot aesthetic
+      settings[["type_hints"]][["pads_cat_axis"]] = TRUE
+    } else {
+      xlabs = NULL
     }
     if (is.factor(datapoints$y)) {
-      datapoints$y = as.numeric(datapoints$y)
+      ylvls = levels(datapoints$y)
+      ylabs = seq_along(ylvls)
+      names(ylabs) = ylvls
+      datapoints$y = as.integer(datapoints$y)
+      # More generous padding if categorical y-axis; better plot aesthetic
+      settings[["type_hints"]][["pads_cat_axis"]] = TRUE
+    } else {
+      ylabs = NULL
     }
 
-    env2env(environment(), settings, "datapoints")
+    env2env(environment(), settings, c("datapoints", "xlabs", "ylabs"))
   }
   return(fun)
 }

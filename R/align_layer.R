@@ -22,8 +22,23 @@ align_layer = function(settings) {
   
   # Only adjust if original layer has named xlabs
   if (!is.null(names(xlabs_orig))) {
-    if (is.factor(settings$datapoints[["x"]])) {
-      # Case 1: relevel a factor (e.g., ribbon added to errorbars)
+    # The atomic branch of this condition covers a base layer that coerced a
+    # numeric/character x to a factor itself (bars, ridges): its categories are
+    # the *labels*, while the added layer still carries the raw values. Those
+    # values are releveled below just like a factor would be, and the resulting
+    # integer codes are the positions the base layer drew at.
+    #
+    # Both extra tests are load-bearing. Requiring the layer to have no named
+    # xlabs of its own leaves Case 2 owning layers that already converted --
+    # otherwise a base whose categories are literally "1", "2", "3" would have
+    # the layer's integer *positions* misread as labels. Requiring every value
+    # to match leaves a partial overlap alone, rather than silently turning the
+    # unmatched rows into NA and dropping them from the plot.
+    if (is.factor(settings$datapoints[["x"]]) ||
+        (is.null(names(xlabs_layer)) &&
+         all(as.character(settings$datapoints[["x"]]) %in% names(xlabs_orig)))) {
+      # Case 1: relevel a factor (e.g., ribbon added to errorbars), or an
+      # atomic x whose values name the original layer's categories
       settings$datapoints[["x"]] = tryCatch(
         factor(settings$datapoints[["x"]], levels = names(xlabs_orig)),
         error = function(e) {
@@ -36,10 +51,13 @@ align_layer = function(settings) {
       if (setequal(names(xlabs_layer), names(xlabs_orig))) {
         # If mappings already agree and no dodge, no realignment needed
         if (identical(xlabs_layer, xlabs_orig) && is.null(settings$dodge)) return(invisible())
-        orig_order = xlabs_orig[names(xlabs_layer)[settings$datapoints[["x"]]]]
         x_layer = settings$datapoints[["x"]]
         if (is.null(settings$dodge)) {
-          x_new = x_layer[orig_order] 
+          # Per-row lookup, not a permutation: the position each row's category
+          # occupies in the original layer. Indexing `x_layer` by it instead
+          # only coincided with the right answer when the layer's rows happened
+          # to arrive in ascending order. (#679)
+          x_new = unname(xlabs_orig[names(xlabs_layer)[x_layer]])
         } else {
           names(x_layer) = names(xlabs_layer)[round(x_layer)]
           x_new = x_layer + (xlabs_orig[names(round(x_layer))] - round(x_layer))

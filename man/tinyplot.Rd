@@ -37,11 +37,16 @@ tinyplot(x, ...)
   xaxt = NULL,
   yaxt = NULL,
   xaxs = NULL,
+  xpad = NULL,
   yaxs = NULL,
+  ypad = NULL,
   xaxb = NULL,
   yaxb = NULL,
   xaxl = NULL,
   yaxl = NULL,
+  xaxr = NULL,
+  yaxr = NULL,
+  las = NULL,
   log = "",
   flip = FALSE,
   frame.plot = NULL,
@@ -62,6 +67,7 @@ tinyplot(x, ...)
   file = NULL,
   width = NULL,
   height = NULL,
+  record = NULL,
   asp = NA,
   theme = NULL,
   ...
@@ -192,6 +198,36 @@ each individual facet should adjust independently to match the range of
 the data within that facet. Default is \code{FALSE}. Separate free scaling of
 the x- or y-axis (i.e., whilst holding the other axis fixed) is not
 currently supported.
+\item \code{drop} a logical value indicating whether facet levels that no
+observation uses should be dropped, rather than drawing an empty panel.
+Such levels arise from an unused factor level, or from a multi-variable
+facet like \code{~fvar1 + fvar2} whose cross-product covers combinations that
+the data never observe. Default is \code{FALSE}, i.e. the empty panels are
+drawn. For a two-sided (\code{fvar1 ~ fvar2}) grid, \code{drop = TRUE} cannot remove
+the panel outright, since the layout is a rectangle of rows by columns and
+doing so would misalign the panels that remain; instead the slot is kept
+but left blank, so that it reads as a gap rather than an empty box.
+\item \code{drop.levels} a logical value indicating whether each facet should keep
+only the categories of a categorical axis that it actually uses. Default is
+\code{FALSE}, i.e. every facet shows the full set of categories, even those with
+no data in that panel. With \code{drop.levels = TRUE} a panel's axis is
+recomputed as if its data had been passed through \code{factor()} on its own, so
+the surviving categories are re-spaced evenly and no gaps are left behind.
+Requires free scales (\code{free = TRUE}), since fixed panels share a single
+axis and per-panel categories would misalign them. Note that this is
+distinct from \code{drop} above: \code{drop} removes empty \emph{facets}, whereas
+\code{drop.levels} removes unused \emph{categories within} a facet.
+\item \code{axes} a character string for controlling which facets draw their own
+axes. One of \code{"all"} (every facet gets its own axes), \code{"outer"} (only the
+facets along the bottom and left edges of the grid, so that redundant
+interior axes are dropped), or \code{"none"} (no facet axes at all). If left
+unspecified (the default), the behaviour is inherited from \code{frame.plot}:
+framed plots draw axes in every facet, since each frame visually contains
+its own axes, while frameless plots (e.g. \code{tinytheme("clean2")}) draw only
+the outer ones. Use \code{axes = "outer"} to drop the interior axes while
+\emph{keeping} the facet frames. Note that \code{axes} is ignored for free-scaled
+facets (\code{free = TRUE}), which necessarily require their own axes; the
+sole exception being \code{axes = "none"}, which is always respected.
 \item \code{fmar} a vector of form \code{c(b,l,t,r)} for controlling the base margin
 between facets in terms of lines. Defaults to the value of \code{tpar("fmar")},
 which should be \code{c(1,1,1,1)}, i.e. a single line of padding around each
@@ -200,6 +236,40 @@ their global \code{\link[tinyplot]{tpar}} settings. Note some automatic
 adjustments are made for certain layouts, and depending on whether the plot
 is framed or not, to reduce excess whitespace. See
 \code{\link[tinyplot]{tpar}} for more details.
+\item \code{labeller} a formatting function or convenience string passed to
+\code{\link[tinyplot]{tinylabel}} for adjusting facet titles. This is
+applied to the underlying facet values, i.e. before any \code{prefix} (below) is
+added, and component-wise if the facets are defined over several variables.
+For the latter case, a (named) list or character vector can be used to
+format each variable differently, e.g.
+\code{labeller = list(firm = toupper, yield = "\%")}, with any variable left
+unnamed not formatted. While not recommended, unnamed values are matched
+positionally, according to the variable order in the \code{facet} formula
+specification. Note that this per-variable naming claims the same slot that
+a \code{\link{tinylabel}} dictionary would, so a dictionary has to be nested inside
+it, e.g. \code{labeller = list(Species = c(setosa = "SET"))}; a bare named
+vector is read as a per-variable mapping instead. Defaults to the value of
+\code{tpar("facet.labeller")}, which is \code{NULL} (no formatting).
+\item \code{prefix} a logical or character value for prefixing the facet titles with
+a descriptive name. Pass \code{TRUE} to prefix with the (deparsed) facet
+variable name(s), e.g. \code{"am = 0"} instead of just \code{"0"}. Alternatively,
+pass a custom prefix name as a character value, e.g. \code{prefix = "Automatic"}
+yields \code{"Automatic = 0"}. Like the \code{labeller} argument (above), a (named)
+character vector or list can be used to prefix multiple facet variables,
+e.g. \code{prefix = c(am = "Automatic", vs = "V-shaped")}, with any omitted
+variable taking its own (deparsed) name. While not recommended, unnamed
+values are matched positionally, according to the variable order in the
+\code{facet} formula specification. Similarly, a single string is recycled
+across all facet variables. (Regardless of how they are specified, note
+that prefixed multi-variable facet titles are separated by commas, rather
+than the usual colon.) Defaults to the value of \code{tpar("facet.prefix")},
+which is \code{NULL} (equivalent to \code{FALSE}, i.e. no prefix).
+\item \code{sep} a character string separating the individual variables of a
+multi-variable facet title (ignored otherwise). For example, pass
+\code{sep = "\\n"} to stack each variable on a separate line. Defaults to the
+value of \code{tpar("facet.sep")}, which is \code{NULL} and implies conditional
+behaviour depending on whether the combined variables are prefixed (then:
+\code{", "}) or the not (then: \code{":"}) for readability.
 \item \code{cex}, \code{font}, \code{col}, \code{bg}, \code{border} for adjusting the facet title text
 and background. Default values for these arguments are inherited from
 \code{\link[tinyplot]{tpar}} (where they take a "facet." prefix, e.g.
@@ -233,13 +303,16 @@ type of plot desired.
 \itemize{
 \item \code{"area"} / \code{\link[=type_area]{type_area()}}: Plots the area under the curve from \code{y} = 0 to \code{y} = f(\code{x}).
 \item \code{"errorbar"} / \code{\link[=type_errorbar]{type_errorbar()}}: Adds error bars to points; requires \code{ymin} and \code{ymax}.
+\item \code{"jitter"} / \code{\link[=type_jitter]{type_jitter()}}: Jittered points.
 \item \code{"pointrange"} / \code{\link[=type_pointrange]{type_pointrange()}}: Combines points with error bars.
 \item \code{"polygon"} / \code{\link[=type_polygon]{type_polygon()}}: Draws polygons.
 \item \code{"polypath"} / \code{\link[=type_polypath]{type_polypath()}}: Draws a path whose vertices are given in \code{x} and \code{y}.
 \item \code{"rect"} / \code{\link[=type_rect]{type_rect()}}: Draws rectangles; requires \code{xmin}, \code{xmax}, \code{ymin}, and \code{ymax}.
 \item \code{"ribbon"} / \code{\link[=type_ribbon]{type_ribbon()}}: Creates a filled area between \code{ymin} and \code{ymax}.
+\item \code{"rug"} / \code{\link[=type_rug]{type_rug()}}: Adds a rug to an existing plot.
 \item \code{"segments"} / \code{\link[=type_segments]{type_segments()}}: Draws line segments between pairs of points.
 \item \code{"text"} / \code{\link[=type_text]{type_text()}}: Add text annotations.
+\item \code{"tile"} / \code{\link[=type_tile]{type_tile()}}: Draws a grid of tiles, with the fill given by \code{by}.
 }
 \item Visualizations:
 \itemize{
@@ -247,11 +320,12 @@ type of plot desired.
 \item \code{"boxplot"} / \code{\link[=type_boxplot]{type_boxplot()}}: Creates a box-and-whisker plot.
 \item \code{"chull"} / \code{\link[=type_chull]{type_chull()}}: Draws convex hull(s) around grouped points.
 \item \code{"density"} / \code{\link[=type_density]{type_density()}}: Plots the density estimate of a variable.
+\item \code{"ellipse"} / \code{\link[=type_ellipse]{type_ellipse()}}: Draws confidence ellipse(s) around grouped points.
+\item \code{"heatmap"} / \code{\link[=type_heatmap]{type_heatmap()}}: Draws a grid of tiles, optionally rescaling the fill along one axis.
+\item \code{"hexbin"} / \code{\link[=type_hexbin]{type_hexbin()}}: Creates a hexagonal bin plot, a 2D analogue of a histogram.
 \item \code{"histogram"} / \code{\link[=type_histogram]{type_histogram()}}: Creates a histogram of a single variable.
-\item \code{"jitter"} / \code{\link[=type_jitter]{type_jitter()}}: Jittered points.
 \item \code{"qq"} / \code{\link[=type_qq]{type_qq()}}: Creates a quantile-quantile plot.
 \item \code{"ridge"} / \code{\link[=type_ridge]{type_ridge()}}: Creates a ridgeline (aka joy) plot.
-\item \code{"rug"} / \code{\link[=type_rug]{type_rug()}}: Adds a rug to an existing plot.
 \item \code{"spineplot"} / \code{\link[=type_spineplot]{type_spineplot()}}: Creates a spineplot or spinogram.
 \item \code{"violin"} / \code{\link[=type_violin]{type_violin()}}: Creates a violin plot.
 }
@@ -366,21 +440,55 @@ respectively. See \code{axes} for the possible values.}
 used for the x-axis and y-axis, respectively. See
 \code{\link[graphics]{par}} for the possible values.}
 
+\item{xpad, ypad}{numeric specifying how much padding, as a fraction of the
+data range, should be added to each end of the axes. If \code{NULL} (the
+default), follows an automatic padding heuristic that tries to optimize for
+plot aesthetic depending on the axis type:
+\itemize{
+\item numeric axis: inherited from \code{x/yaxs}. Under the default \code{x/yaxs = "r"}
+style, this means \code{0.04}, i.e. 4\% padding on each end (see
+\code{\link[graphics]{par}}).
+\item categorical axis: behaviour depends on the glyph-type and number of
+unique categories, and therefore tick marks. For example, point-like
+glyphs with numerous (8+) categories inherit the same padding logic as a
+numeric axis (i.e., usually 4\%). For cases with fewer unique categories,
+the padding will instead correspond to 25\% of the gap between interior
+tick marks, so that the end categories aren't drawn flush against the
+plot frame. Note that providing an explicit \code{x/ylim} or setting
+\code{x/yaxs = "i"} skips this heuristic in favour of the standard numeric
+behaviour.
+}}
+
 \item{xaxb, yaxb}{numeric vector (or character vector, if appropriate) giving
 the break points at which the axis tick-marks are to be drawn. Break points
 outside the range of the data will be ignored if the associated axis
 variable is categorical, or an explicit \code{x/ylim} range is given.}
 
-\item{xaxl, yaxl}{a function or a character keyword specifying the format of
-the x- or y-axis tick labels. Note that this is a post-processing step that
+\item{xaxl, yaxl}{a function, character keyword, or dictionary (named vector
+or list) for formatting or (re)labelling the x- or y-axis tick labels.
+Passed to \code{\link{tinylabel}}; see the latter's help file for more detailed
+documentation and examples. Note that this is a post-processing step that
 affects the \emph{appearance} of the tick labels only; use in conjunction with
-\code{x/yaxb} if you would like to adjust the position of the tick marks too. In
-addition to user-supplied formatting functions (e.g., \code{\link{format}},
-\code{\link{toupper}}, \code{\link{abs}}, or other custom function), several convenience
-keywords (or their symbol equivalents) are available for common formatting
-transformations: \code{"percent"} (\code{"\%"}), \code{"comma"} (\code{","}), \code{"log"} (\code{"l"}),
-\code{"dollar"} (\code{"$"}), \code{"euro"} (\code{"€"}), or \code{"sterling"} (\code{"£"}). See the
-\code{\link{tinylabel}} documentation for examples.}
+\code{x/yaxb} if you would like to adjust the position of the tick marks too.}
+
+\item{xaxr, yaxr}{numeric giving the rotation of the x- or y-axis tick labels,
+in degrees counter-clockwise; \code{NULL} (the default) leaves them unrotated.
+Setting one overrides \code{las} for that axis alone, leaving the other axis
+under \code{las} as usual, and \code{0} (or any multiple of 360) counts as no
+rotation at all. Best paired with a dynamic theme (see \code{tinytheme}), since
+that is what resizes the margins to fit the tilted labels; under the
+default theme a long rotated label will be clipped unless you widen \code{mar}
+yourself. Defaults to the value of \code{tpar("xaxr")} / \code{tpar("yaxr")}, whose
+documentation covers this and the label-spacing caveat in more detail.}
+
+\item{las}{numeric in \code{0:3} giving the orientation of the axis tick labels,
+following the base \code{\link[graphics]{par}} convention: \code{0} (parallel
+to the axis), \code{1} (always horizontal), \code{2} (perpendicular to the axis), or
+\code{3} (always vertical). \code{NULL} (the default) defers to the active theme,
+then to \code{par("las")}. Passing it here overrides both, but
+only for this plot; unlike \code{tpar(las=)} or \code{tinytheme(las=)} it does not
+persist. For rotations other than the four right angles, see \code{xaxr}/\code{yaxr}
+below.}
 
 \item{log}{a character string which contains \code{"x"} if the x axis is to be
 logarithmic, \code{"y"} if the y axis is to be logarithmic and \code{"xy"} or \code{"yx"}
@@ -521,10 +629,10 @@ existing plot without having to repeat arguments.}
 \code{y} are plotted). The \code{draw} argument is primarily useful for adding common
 elements to each facet of a faceted plot, e.g.
 \code{\link[graphics]{abline}} or \code{\link[graphics]{text}}. Note that
-this argument is somewhat experimental and that \emph{no} internal checking is
-done for correctness; the provided argument is simply captured and
-evaluated as-is within \code{tinyplot()} and thus has access to the local
-definition of all variables such as \code{x}, \code{y}, etc. See Examples.}
+\emph{no} internal checking is done for correctness; the provided argument is
+simply captured and evaluated as-is within \code{tinyplot()} and thus has
+access to the local definition of all variables such as \code{x}, \code{y}, etc.
+See Examples.}
 
 \item{empty}{logical indicating whether the interior plot region should be
 left empty. The default is \code{FALSE}. Setting to \code{TRUE} has a similar effect
@@ -575,6 +683,19 @@ graphics windows.}
 \code{width} (above) apply, e.g. will default to \code{tpar("file.height")} if not
 specified.}
 
+\item{record}{(experimental) a logical value indicating whether the plot
+should be recorded and returned as a replayable
+\code{\link{recordedtinyplot}} object. Defaults to \code{FALSE}. Setting to
+\code{TRUE} allows for assignment and later recall, e.g.
+\verb{myplot = tinyplot(...); myplot}. This behaviour can also be set globally
+via \code{tpar(record = TRUE)}; an explicit argument here takes precedence.
+
+Note that recording requires a device with an enabled display list (see
+\code{\link[grDevices]{dev.control}}). Most interactive devices enable this
+behaviour by default, whereas file-based devices do not. However \code{tinyplot}
+automatically enables it for any device that it opens itself via \code{file},
+and further emits a warning if the current device is not recording.}
+
 \item{asp}{the y/xy/x aspect ratio, see \code{plot.window}.}
 
 \item{theme}{keyword string (e.g. \code{"clean"}) or list defining a theme. Passed
@@ -596,7 +717,10 @@ should not be specified in the same call.}
 when extracting the data from \code{formula} and \code{data}.}
 }
 \value{
-No return value, called for side effect of producing a plot.
+By default, no return value; called for the side effect of producing
+a plot. If \code{record = TRUE} (or globally via \code{tpar(record = TRUE)}), the
+plot is instead returned invisibly as a \code{"recordedtinyplot"} object, which
+can be replayed later; see \code{\link{recordedtinyplot}}.
 }
 \description{
 Enhances the base \code{\link[graphics]{plot}} function. Supported features
@@ -738,36 +862,41 @@ tinyplot(
   main = "Temperatures by month and season"
 )
 
-# Users can override the default square window arrangement by passing `nrow`
-# or `ncol` to the helper facet.args argument. Note that we can also reduce
-# axis label repetition across facets by turning the plot frame off.
+# Customize facets by passing a list of options to the companion `facet.args`
+# argument. For example, here we arrange the facets in a single row and also
+# turn off the inner axes labels to reduce redundancy.
 
 tinyplot(
   Temp ~ Day | Summer,
-  facet = ~Month, facet.args = list(nrow = 1),
+  facet = ~Month,
+  facet.args = list(nrow = 1, axes = "outer"),
   data = aq,
   type = "area",
   palette = "dark2",
-  frame = FALSE,
   main = "Temperatures by month and season"
 )
 
 # Use a two-sided formula to arrange the facet windows in a fixed grid.
 # LHS -> facet rows; RHS -> facet columns
 
-aq$hot = ifelse(aq$Temp >= 75, "hot", "cold")
-aq$windy = ifelse(aq$Wind >= 15, "windy", "calm")
+aq$hot = aq$Temp >= 75
+aq$windy = aq$Wind >= 15
 tinyplot(
   Temp ~ Day,
   facet = windy ~ hot,
+  facet.args = list(prefix = TRUE), # optional
   data = aq
 )
+
+# (Note: The optional `prefix = TRUE` argument prepends the facet variable
+#  names to the strip titles, making for a more informative display here.)
 
 # To add common elements to each facet, use the `draw` argument
 
 tinyplot(
   Temp ~ Day,
   facet = windy ~ hot,
+  facet.args = list(prefix = TRUE),
   data = aq,
   draw = abline(h = 75, lty = 2, col = "hotpink")
 )

@@ -4,8 +4,39 @@
 #'
 #' @inheritParams dodge_positions
 #' @inheritParams graphics::arrows
+#' @param xlevels,xord arguments controlling the order of the `x` variable, and
+#'   hence of the x-axis. Supply one or the other; if both arguments are
+#'   provided, `xlevels` takes precedence and `xord` is silently ignored.
+#'
+#'   - `xlevels` specifies the levels _literally_, either a character vector of
+#'   level names in the desired order (e.g., `c("C", "B", "A")`), or a numeric
+#'   vector of the corresponding level indexes (e.g. `3:1`).
+#'
+#'   - `xord` instead accepts a keyword or custom function, which then _derives_
+#'   the order from the data. Options are:
+#'
+#'     - `"desc"` and `"asc"` rank the categories by their mean `y` value,
+#'     largest or smallest first. (Long forms like `"descending"` and `"increasing"` are also accepted.)
+#'     - `"minvar"` ranks them by variance, lowest first. This needs more than
+#'     one observation per category, so it does not apply to the usual
+#'     one-row-per-term coefficient table.
+#'     - `"asis"` or `"rev"` permute the existing levels without consulting the
+#'     data at all. The former takes the categories in the order that they
+#'     appear in the data, while the latter reverses the current level order.
+#'     - a custom function that determines both the ranking statistic and its
+#'     direction. The statistic is always sorted ascending, so
+#'     `function(y) -median(y)` ranks by median, largest first.
+#'
+#'   Note that `x` is only reordered when it is categorical (i.e., factor or
+#'   character). A numeric `x` is plotted at its own values and cannot be
+#'   reordered, so supplying either argument there is ignored with a warning.
+#'
+#'   Unlike most other plot types, `xord` defaults to `"asis"` here rather than
+#'   `NULL`: these types are typically used for coefficient plots, where the row
+#'   order of the data (e.g., the terms of a model) is usually intentional. Set
+#'   `xord = NULL` to follow the factor levels instead, matching the other types.
 #' @examples
-#' tinytheme("basic")
+#' tinytheme("basic") # filled points & background grid (but not dynamic yet)
 #' 
 #' #
 #' ## Basic coefficient plot(s)
@@ -25,13 +56,13 @@
 #' #
 #' ## Flipped plots
 #' 
-#' # For flipped errobar / pointrange plots, it is recommended to use a dynamic
-#' # theme that applies horizontal axis tick labels
+#' # For flipped errobar / pointrange plots, it is recommended to use a
+#' # *dynamic* theme for horizontal axis tick labels + appropriate spacing
 #'
-#' tinytheme("classic")
+#' tinytheme("classic") # or  "clean(2)", "bw", "socviz", "float", ... 
 #' tinyplot(est ~ term, ymin = lwr, ymax = upr, data = coefs, type = "errorbar",
 #'          flip = TRUE)
-#' tinyplot_add(type = 'vline', lty = 2)
+#' tinyplot_add(type = "hline", lty = 2) # "hline" b/c flip = TRUE (not vline!)
 #' 
 #' tinytheme("basic") # back to basic theme for the remaining examples
 #' 
@@ -83,13 +114,54 @@
 #'          dodge = 0.1, fixed.dodge = TRUE)
 #' tinyplot_add(type = "l", lty = 2)
 #'
+#' #
+#' ## Handling (long/overlapping) tick labels
+#' 
+#' # You may face the annoyance of long and/or overlapping tick labels, e.g.
+#' mod2 = lm(mpg ~ 0 + factor(cyl) * factor(am), mtcars)
+#' coefs2 = data.frame(names(coef(mod2)), coef(mod2), confint(mod2))
+#' colnames(coefs2) = c("term", "est", "lwr", "upr")
+#' # (re-usable plot function)
+#' demo_plot = function(...) {
+#'   tinyplot(
+#'     est ~ term, ymin = lwr, ymax = upr,
+#'     data = coefs2,
+#'     type = "errorbar",
+#'     xlab = NA,
+#'     ylab = "MPG (miles per gallon)",
+#'     main = "Impact on fuel efficiency",
+#'     ...
+#'   )
+#' }
+#' demo_plot()
+#' 
+#' # Here are some useful arguments (strategies) to avoid this annoyance...
+#' 
+#' # 1) dynamic theme + rotated x-labels
+#' demo_plot(theme = "clean", xaxr = 45)
+#' # 2) dynamic theme + labeller function (here: dictionary w/ newline spacing)
+#' dict = c(
+#'   "factor(cyl)4"             = "Manual\n4 Cyclinders",
+#'   "factor(cyl)6"             = "Manual\n6 Cyclinders",
+#'   "factor(cyl)8"             = "Manual\n8 Cyclinders",
+#'   "factor(am)1"              = "Automatic\n4 Cylinders",
+#'   "factor(cyl)6:factor(am)1" = "Automatic\n6 Cylinders",
+#'   "factor(cyl)8:factor(am)1" = "Automatic\n8 Cylinders"
+#' )
+#' demo_plot(theme = "clean", xaxl = dict)
+#' # 3) dynamic theme + flipped axes
+#' demo_plot(theme = "clean", flip = TRUE)
+#' # 4) any combination of the above, e.g., labeller dictionary + flipped axes
+#' demo_plot(theme = "clean", flip = TRUE, xaxl = dict)
+#' 
 #' tinytheme() # reset theme
-#'
+#' 
 #' @export
-type_errorbar = function(length = 0.05, dodge = 0, fixed.dodge = FALSE) {
+type_errorbar = function(length = 0.05, dodge = 0, fixed.dodge = FALSE, xlevels = NULL, xord = "asis") {
+    ord_supplied = !missing(xord) || !is.null(xlevels)
     out = list(
         draw = draw_errorbar(length = length),
-        data = data_pointrange(dodge = dodge, fixed.dodge = fixed.dodge),
+        data = data_pointrange(dodge = dodge, fixed.dodge = fixed.dodge, xlevels = xlevels, xord = xord, ord_supplied = ord_supplied),
         name = "p"
     )
     class(out) = "tinyplot_type"

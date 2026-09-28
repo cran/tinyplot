@@ -4,6 +4,431 @@ _If you are viewing this file on CRAN, please check the
 [latest NEWS](https://grantmcdermott.com/tinyplot/NEWS.html) on our website
 where the formatting is also better._
 
+## v0.8.0
+
+### Breaking changes
+
+- `type_lines()` and its shortcut equivalents like `"l"` and `"b"` now order
+  categorical `x` data by (coerced) factor levels, rather than simple order of
+  appearance. This resolves a longstanding tension between line types and
+  other types like `type_points()`, which have always ordered the `x` axis by
+  implied factor levels. It also improves layering consistency via `plt_add()`
+  and co. so that plots are identical, regardless of whether lines are layered
+  on top of points, or vice versa. Note that you can still select into the
+  old behaviour by passing the (new) `xord = "asis"` argument as an
+  explicit override; see "Other new features" below. (#683 @grantmcdermott)
+
+### New features
+
+#### New plot types
+
+- `type_hexbin()` / `"hexbin"` for hexagonal bin plots, a 2D analogue of a
+  histogram. (#667 @grantmcdermott)
+- `type_tile()` / `"tile"` for tile plots, i.e. a grid of rectangles whose fill
+  encodes a third variable. (#677 @grantmcdermott)
+- `type_heatmap()` / `"heatmap"` builds on `type_tile()`, adding a `scale`
+  argument that scales the fill values _within_ each category of one axis. This
+  is analogous to base R's `heatmap()` function, and like the latter it z-scores
+  along the chosen margin by default. It also reverses the y-axis by default, so
+  that the first row sits at the top (again matching `heatmap()`); pass an
+  explicit `ylim` to override. (#677 @grantmcdermott)
+- `type_sina()` / `"sina"` for [sina plots](https://en.wikipedia.org/wiki/Sina_plot),
+  a variant of the violin plot where the raw observations are displayed as points,
+  with each group's width bounded by its density. This makes them arguably a more
+  principled version of the beeswarm plot. (#734 @grantmcdermott)
+- While not strictly a new plot type, `type_area()` gains a new `stack` argument
+  for drawing _stacked_ area plots, where each layer represents a discrete `by`
+  category group. This functionality is further enhanced by two (also new)
+  sister arguments. First, `byord` enables on-the-fly (re-)ordering of the
+  stacked `by` layers, via convenience keywords or custom functions (e.g.,
+  `byord = "end"` ranks groups according to their largest final value). Second,
+  a `fun` argument permits stacking of multi-observation data by collapsing
+  repeated `y` values. (#688 @grantmcdermott)
+
+#### Facet improvements
+
+The top-level `facet.args` list argument gains several new (sub-)arguments that
+enable finer control and customization of faceted plots:
+
+- `axes`: gives explicit control over which facets draw their own axes: `"all"`,
+  `"outer"` (drop redundant interior axes), or `"none"`. Previously this was
+  only achievable as a side effect of `frame.plot = FALSE`, so `axes = "outer"`
+  now allows redundant axes to be dropped while _keeping_ the facet frames. Left
+  unspecified, the behaviour is still inferred from whether the plot is framed.
+  (#661, #673 @grantmcdermott)
+  - Themes with L-shaped axes (`"classic"`, `"socviz"`, `"tufte"`, and
+    `"float"`) now default to `facet.axes = "outer"`, so that they drop the
+    redundant interior axes of faceted plots.
+- `drop`: allows for the removal of empty facets. The behaviour varies slightly
+  depending on whether a one-sided (wrapped) or two-sided (gridded) facet
+  formula is specified. The former simply removes the missing factor level,
+  while the latter retains its spot (to preserve the rectangular grid) but is
+  not drawn. (#708, #710 @grantmcdermott)
+- `drop.levels`: allows each free facet (`free = TRUE`) to keep only the
+  categories of a categorical axis that it actually uses. The panel's axis is
+  recomputed as if its own data had been passed through `factor()`, so that the
+  surviving categories are re-spaced evenly rather than leaving a gap where an
+  unused one sat. Note the distinction from `drop` above: the latter removes
+  empty _facets_, whereas `drop.levels` removes unused _categories within_ a
+  facet. Default is `FALSE`, i.e. every facet keeps the full set of categories.
+  (#718 @grantmcdermott)
+- `labeller`: for formatting facet titles via `tinylabel()`. Accepts the usual
+  mix of convenience keywords (symbols) known to `tinylabel()`, or formatting
+  functions. A (named) vector or list can be used to separately format
+  multi-variable facets, e.g. `labeller = c(country = toupper, size = ",")`.
+  (#684 @grantmcdermott)
+- `prefix`: for adding an informative prefix to facet titles. In its simplest
+  form, `prefix = TRUE` prepends the facet variable name, e.g. `"vs = 0"` and
+  `"vs = 1"` (rather than just `"0"` and `"1"`). Like `labeller` above,
+  multi-variable facets can be prefixed separately via a (named) vector or list,
+  e.g. `prefix = c(am = "Automatic", vs = "V-shaped")`. (#684 @grantmcdermott)
+- `sep`: controls how the individual variables of a multi-variable facet title
+  are separated, e.g. use `sep = "\n"` to stack on separate lines rather than
+  concatenating via the default `":"`. (#684 @grantmcdermott)
+
+Note that each of these `facet.args` arguments is paired with an equivalent
+`tpar(facet.<arg>)` parameter. For example, call `tpar(facet.axes = "outer")`
+to set this behaviour globally. This also means that they can be set as part of
+a (custom) theme, e.g. `tinytheme("clean", facet.axes = "outer")`.
+
+#### Ordering and labelling categorical variables
+
+This release brings several enhancements for working with _categorical_
+variables, i.e. where `x`, `y`, or `by` are characters or factors with discrete
+levels. This includes improvements to existing arguments, as well as the
+provision of some new arguments that enable finer control over level ordering
+and convenient label formatting.
+
+- `xlevels`, `ylevels`: these (type-level) arguments permit on-the-fly
+  reordering of a categorical variable via _literal_ specification, either a
+  character vector of level names (e.g., `c("C", "B", "A")`), or a numeric
+  vector of level indices (e.g., `3:1`). While this argument is not new---having
+  been supported by `type_barplot` and several other types for a while---we now
+  extend `xlevels` support to `type_points()`, `type_lines()`,
+  `type_errorbar()`, and `type_pointrange()`. (#683, #694 @grantmcdermott)
+- `xord`, `yord`: these are new (type-level) arguments that provide an alternate
+  ordering interface to `x/ylevels`. Specifically, while `x/ylevels` require a
+  literal ordering, `x/yord` _computes_ the order on the fly, according to
+  (type-appropriate) convenience keywords or a custom ranking function. For
+  example, `"desc(ending)"`/`"asc(ending)"` orders by value, while `"asis"`
+  ignores factor levels and just takes the order of appearance in the data as
+  given. Among other things, this makes it possible to sort barplots by height
+  (e.g., `type_barplot(xord = "desc")`), or ridges by their spread (e.g.,
+  `type_ridge(yord = "minvar")`) without relevelling the underlying factor by
+  hand. (#683, #694 @grantmcdermott)
+- (Note: users should only supply one of the preceding sets of arguments. If
+  both `x/ylevels` and `x/yord` are provided, the former takes precedence as
+  the more explicit.)
+- `tinylabel()` gains a dictionary form, i.e., a *named* character vector or
+  list that maps existing labels to new ones _a la_
+  `c(old1 = "new1", old2 = "new2")`. Partial mapping is fine since the lookup is
+  by value rather than by position, so that some levels can be left unnamed.
+  Importantly, this behaviour extends to the rest of **tinyplot**'s
+  (re)labelling machinery---including `x/yaxl`, `type_text()`, and any function
+  with a `labeller` argument---since everything is routed through `tinylabel()`.
+  (#690 @grantmcdermott)
+- The type-level `x/yaxlabels` arguments of `type_spineplot()` and
+  `type_barplot()` are deprecated in favour of the top-level `x/yaxl` arguments.
+  The type-level arguments predated their top-level cousins, which now offer the
+  same functionality via a consistent interface across _all_ types. The old
+  arguments still work (with a warning) for now. But we will be formally
+  removing them in a future release and, going forwards, encourage users to move
+  over to `xaxl` and `yaxl` as the idiomatic **tinyplot** way to relabel
+  and format axis ticks. (#692 @grantmcdermott)
+
+Beyond convenience, these improvements to categorical variable handling also
+provide the scaffolding to eliminate some niggling inconsistencies; for example,
+related to plot layering. See "Bug fixes" below.
+
+#### Axis aesthetics
+
+- Point-like glyphs (`"p"`, `"l"`, `"errorbar"`, and friends) gain smart padding
+  behaviour for categorical axes. Most notably, we now use more generous axis
+  padding when there are few unique categories (levels), so that the end tick
+  marks aren't drawn flush against the plot frame. Users can also override with
+  the new `x/ypad` arguments (see below) to match their own aesthetic
+  preferences. (#732 @grantmcdermott)
+
+#### New `tinyplot.*` methods
+
+- `tinyplot.array()`: for (unclassed) `array` objects with up to four
+  dimensions. This extends the `tinyplot.matrix()` conventions by mapping the
+  third dimension to facets, and a fourth to a facet grid. The names of the
+  dimnames (if any) are used for the axis, legend, and facet titles. Arrays
+  with a length-2 dimension (e.g., `gait`) are plotted as x/y pairs, i.e. one
+  slice against the other. See the `tinyplot.array`-specific `xy`  argument.
+  Passing `facet = FALSE` draws everything in a single panel instead.
+  (#746 @grantmcdermott)
+
+#### Other new features
+
+- New top-level `tinyplot()`/`plt()` arguments:
+  - `xpad` and `ypad` enable control over how much padding (as a fraction of the
+    data range) is added to each end of the axes. Following base R conventions,
+    the default for most plots is `0.04`, i.e. 4% padding on each side. Also
+    settable globally via `tpar(xpad = <xpad>, ypad = <ypad>)`.
+    (#729 @grantmcdermott)
+  - `xaxr` and `yaxr` enable rotating of the x- and y-axis tick labels by
+    arbitrary angles, closing a long-standing feature request (#346). Note that
+    setting one overrides `las` for that axis. Best combined with a dynamic
+    theme, since the plot margins are resized to fit the rotated labels. Also
+    settable globally via `tpar(xaxr = <xaxr>, yaxr = <yaxr>)` and thus as part
+    of a `tinytheme` too. (#717 @grantmcdermott)
+  - `las` does the same thing, but limited to the four right angles of base R's
+    `par(las=)` convention, having previously been settable only via `tpar()` or
+    a theme. Note that this top-level argument applies to a single plot only and
+    takes precedence over the active theme, so it can also be used to opt _out_
+    of a theme's `las`, e.g. `tinyplot(..., theme = "clean", las = 0)`.
+    (#353 @grantmcdermott)
+  - (Experimental) `record` enables recording plots as replayable objects,
+    closing another long-standing feature request (#121). Specifically, setting
+    `record = TRUE` returns a `"recordedtinyplot"` object (see
+    `?recordedtinyplot`), allowing for assignment and later recall, e.g.
+    `myplot = tinyplot(...); myplot`. Also settable globally via
+    `tpar(record = TRUE)`, so that all `tinyplot()` plots are automatically
+    recorded---with potential memory implications for detailed plots with _many_
+    elements. Note that a recorded plot will still render its display on the
+    initialising call if you are using an interactive graphics device. While we 
+    have done our best to vet this new `record` functionality carefully, users
+    should still regard it as experimental. We may change its behaviour
+    (availability) in a future release if we observe undesirable side-effects.
+    Please help us by testing on your own machines and reporting any issues.
+    (#686 @grantmcdermott)
+- Type-specific updates:
+  - `type_lines()` and its shortcut equivalents like `"l"` and `"s"` now support
+    a _continuous_ `by` variable, drawing a colour gradient along the line
+    itself rather than reverting to a discrete legend. Useful for trajectories,
+    where a third variable (typically time) orders the path; see the new
+    `?type_lines` examples. (#712 @grantmcdermott)
+  - `type_density()` gains an `echo.bw` argument for reporting the smoothing
+    bandwidth and the number of observations behind it, neither of which is
+    visible from the curve itself. Destinations are `"sub"`, `"cap"`, and
+    `"cat"` (console), in any combination; a destination the user has already
+    labelled is left alone. Shared bandwidths are reported once and named as
+    joint, individual bandwidths per group. (#287 @haomeng797-ship-it)
+  - `type_area()` gains a `stack` argument for drawing stacked area plots. See
+    "New plot types" above for more details. (#688 @grantmcdermott)
+  - `type_summary()` gains a `dodge` (and `fixed.dodge`) argument, thus enabling 
+    dodging of grouped plots. This is mostly useful for adding summaries on top
+    of a base layer that is itself dodged. Separately, `type_summary()`'s
+    internals have been refactored to use `stats::aggregate` instead of
+    `stats::ave`. (#701 @grantmcdermott)
+  - `type_barplot()` gains a `na.as.zero` argument for controlling whether a
+    category that no observation reaches is treated as a zero (and so marked
+    with a flat bar along the baseline) or left undrawn. The default `NULL`
+    lets `fun` decide; see the new "Implicit zeros and empty cells" section of
+    `?type_barplot`. (#718 @grantmcdermott)
+  - `type_barplot()`'s aggregation argument is now spelled `fun`, for
+    consistency with the other types that take a function and with
+    **tinyplot**'s lowercase argument naming generally. `FUN` is retained as a
+    backwards-compatible alias, so existing code keeps working; supply one or
+    the other, and `fun` takes precedence if both are given.
+    (#695 @grantmcdermott)
+  - `type_histogram()` now (correctly) supports mapping `by` grouping along the
+    `x` variable, e.g. `tinyplot(~mpg | mpg, data = mtcars, type = "hist")`.
+    Bar colours map to mean bin values. (#727 @grantmcdermott)
+  - `type_loess()` is now much faster on large data. Thanks to @eleuven for
+    bringing this slowness issue to our attention. (#509 @grantmcdermott)
+- Themes:
+  - `"heatmap"` provides a dedicated companion theme to the new `type_tile()`
+    and `type_heatmap()` types (see above). The theme removes all axis padding,
+    so that tiles meet the panel edge, and also rotates the tick labels against
+    their respective axes. Colour fills default to the "tealgrn" sequential
+    palette. (#677 @grantmcdermott)
+  - New `tinytheme_get()` function returns the name of the currently active
+    theme. (#629 @grantmcdermott)
+- Custom plot types have more control over the surrounding plot machinery, via a
+  new `type_hints` mechanism. A type can declare properties about itself---that
+  it draws its own axes, needs a secondary right-hand axis, uses proportional
+  limits, fills its legend key from `col`, and so on---and **tinyplot** adjusts
+  margins, axis limits and legend keys accordingly. Previously this behaviour
+  was hard-coded against the names of built-in types, so it was unavailable to
+  custom types. See
+  [Advanced customization](https://grantmcdermott.com/tinyplot/vignettes/types.html#type-hints)
+  in the `Types` vignette for the list of supported hints. (#543 @grantmcdermott)
+- New `cex.xaxs` and `cex.yaxs` graphical parameters allow the x- and y-axis
+  tick labels to be sized independently, e.g. `tpar(cex.yaxs = 0.6)` to shrink a
+  long list of category names on the y-axis without also shrinking the x-axis.
+  Both default to `NULL`, in which case the shared `cex.axis` value is used, so
+  existing plots are unaffected. (#677 @grantmcdermott)
+
+### Bug fixes
+
+- Degenerate array inputs, i.e. 1-row or 1-column matrices, are now dropped
+  to plain vectors, so that e.g. `tinyplot(1:10, array(1:10, c(1, 10)))` works
+  just like `plot()`. (#548, #746 @tony-aw @zeileis @grantmcdermott)
+- Two-sided facet formulas (`facet = rows ~ cols`) now work with the default
+  (non-formula) method, e.g. `tinyplot(x, y, facet = a ~ b, data = dat)`.
+  Previously this errored because `data` was not forwarded. (#746
+  @grantmcdermott)
+- Free facets (`facet.args = list(free = TRUE)`) now respect `asp`.
+  (#744 @grantmcdermott)
+- Multi-line x-axis tick labels (e.g. `"Hello\nWorld"`) are now spaced
+  correctly under dynamic themes. (#742 @grantmcdermott)
+- `type_lm()`, `type_glm()` and `type_loess()` now space their prediction grid
+  evenly in `log(x)` when the x-axis is logarithmic. Previously a `log = "x"`
+  plot spanning several decades drew the left-hand ones as a few straight
+  segments. (#509 @grantmcdermott)
+- An ephemeral `theme` argument no longer clobbers a persistent `tinytheme()`
+  i.e., beyond the intended single plot override. Similarly for a user's own
+  `tpar()` settings. (#739 @grantmcdermott)
+- Annotations and layers added after a plot that used an ephemeral `theme`
+  argument are no longer clipped to the wrong region. Only triggered once an
+  intervening annotation changed `xpd` (e.g. `box()`, `mtext()`, or
+  `type_text(xpd = NA)`), since that is what makes base R recompute the
+  clipping rectangle. Thanks to @bastistician for the report.
+  (#629 @grantmcdermott)
+- `type_text()` no longer converts a categorical axis to a numeric one.
+  (#730 @grantmcdermott)
+- `type_hline()`, `type_vline()`, and `type_abline()` now respect
+  `flip = TRUE`, so that (e.g.) `h` refers to the flipped `y` variable and is
+  drawn vertically. Code that previously used `type_vline()` as a workaround
+  for a vertical line on a flipped plot should switch to `type_hline()`, and
+  vice versa. (#733 @grantmcdermott)
+- The `adjust` argument of `type_density()`, `type_violin()`, and
+  `type_ridge()` was accepted but never passed on to the underlying
+  `density()` call, so it silently did nothing. (#734 @grantmcdermott)
+- `type_violin()` receives two further bug fixes:
+  - `joint.bw = "full"` computed the joint bandwidth from the `x` categories
+    rather than the `y` values being smoothed. (#734 @grantmcdermott)
+  - Dodge offsets were keyed by the `by` variable's underlying integer codes.
+    A numeric `by` therefore errored outright, and a factor `by` carrying an
+    unused level silently dropped the affected group from the plot. Offsets are
+    now keyed by position among the observed groups. (#734 @grantmcdermott)
+  - A numeric (continuous) `by` now reverts to discrete groups and a matching
+    discrete legend, as it already did for `"boxplot"`, `"polygon"` and the
+    other types that cannot render a colour gradient. Previously every violin
+    was drawn in the same colour while the legend showed a colourbar.
+    (#734 @grantmcdermott)
+- Fixed a bug where consecutive plots with (i) logged axes under (ii) a dynamic
+  theme would error, due to a stale `par("xlog")`/`par("ylog")` state. We now
+  avoid this by grabbing the log state directly from the top-level `log`
+  argument instead. Thanks to @eddelbuettel for the report.
+  (#725 @grantmcdermott)
+- `type_barplot()` receives several consistency improvements and bug fixes:
+  - Passing a named atomic vector now uses the names as the bar categories,
+    matching base `barplot()`. (#714 @grantmcdermott)
+  - A category that no observation reaches is no longer treated as an
+    implicit zero; at least not unconditionally. Instead, behaviour is now
+    governed by explicit rules, e.g. derived from `fun` or the new `na.as.zero`
+    argument (above). At the same time, explicit zeros remain unaffected. Again,
+    see the new "Implicit zeros and empty cells" section of `?type_barplot` for
+    details and examples. (#711 @grantmcdermott)
+- `type_ridge()` no longer errors under themes that set a relative (negative)
+  numeric `col.default`, e.g. `theme = "classic"`. (#703 @grantmcdermott)
+- Layers added with `tinyplot_add()` now align correctly on a categorical axis:
+  - They land on the category that each row belongs to, rather than on the row's
+    _position_. The latter only coincided with the right answer when the added
+    layer's rows happened to arrive in ascending order; other rows were
+    permuted, and repeated categories collapsed onto a single position.
+    (#679 @grantmcdermott)
+  - They also align when the base plot type coerces a numeric `x` variable to a
+    factor, as `type_barplot()` and `type_violin()` do. The base layer's
+    categories are the coerced *labels*, while the added layer still carried the
+    raw values, so it was drawn at those coordinates instead of at the category
+    positions---often well outside the plotting region. (#691 @grantmcdermott)
+- Axis labellers no longer blow up the decimal precision when the breaks are
+  symmetric about zero, as they are for a centered barplot. `tinyplot(...,
+  center = TRUE, yaxl = "percent")` labelled its axis `80.00000%` rather than
+  `80%`. (#689 @grantmcdermott)
+- The top-level `xaxl` / `yaxl` arguments now work for `type_spineplot()` and
+  `type_ridge()`. Both types draw their own axes, and so never reached the
+  standard path where those arguments are applied, meaning they were silently
+  ignored. (#694 @grantmcdermott)
+- `xlevels` / `ylevels` no longer drop data silently. Naming a strict subset of
+  a variable's levels sent every other level to `NA`, quietly removing those
+  observations from the plot; this now warns. Supplying a value that matches no
+  level at all is now an error, rather than surfacing later as an unrelated
+  complaint about zero-length ranges. (#688, #694 @grantmcdermott)
+- `type_area()` now labels a categorical `x` axis with its factor levels,
+  rather than falling back to the underlying integer positions.
+  (#688 @grantmcdermott)
+- Density-based plots no longer error out on singleton groups, i.e. `by` and
+  `facet` combinations containing only one observation. Such groups are now
+  dropped, together with a warning reporting how many were removed. The
+  affected types---`type_density()`, `type_violin()`, and `type_ridge()`---also
+  gain a `singletons` argument for controlling this behaviour: option `"drop"`
+  removes them quietly, while `"none"` retains them (and so requires a numeric
+  `bw`). (#687 @grantmcdermott)
+- `flip = TRUE` now flips the drawn geometry of the single-letter line types,
+  not just the axes: `type = "h"` draws horizontal segments to the baseline,
+  and the step types `"s"` and `"S"` swap which coordinate moves first.
+  (#675 @haomeng797-ship-it)
+- Line types now keep the category labels on a categorical y-axis, both for
+  `flip = TRUE` and for a factor `y` variable. Previously the y-axis fell back
+  to numeric tick labels for every line type except `"p"`.
+  (#679 @grantmcdermott)
+- Fixed several bugs specific to plots with free facets (i.e.,
+  `facet.args = list(free = TRUE)`):
+  - Panels now keep every category of a categorical axis, regardless of type,
+    so that their ticks line up with each other. Use the new `drop.levels` arg
+    (above) for the opposite behaviour. (#718 @grantmcdermott)
+  - The geometry around the end categories of a categorical axis is no longer
+    clipped, e.g. the first and last box of a faceted boxplot.
+    (#718 @grantmcdermott)
+  - A categorical y-axis no longer errors out with `'labels' is supplied and
+not 'at'`. The free-facet code path listed the eligible types by name, so
+    any other type lost its tick positions while keeping the corresponding
+    labels, whether flipped (e.g. `type = "b"` with `flip = TRUE`) or not
+    (e.g. `type = "p"` with a factor `y` variable). (#679 @grantmcdermott)
+  - Single-valued discrete axes no longer trigger invalid `par(usr)` values.
+    (#668 @grantmcdermott)
+  - Similarly, empty facets (containing no data at all) no longer trigger
+    invalid `par(usr)` values either. (#705 @grantmcdermott)
+  - User-provided `x/ylim` overrides now work correctly with flipped plots.
+    (#670 @grantmcdermott)
+  - "Smart" partially specified `x/ylim` limits (e.g., `ylim = 0` or
+    `ylim = c(0, NA)`) are now resolved per facet, rather than once against the
+    range of the whole dataset. (#706 @grantmcdermott)
+  - Axes now inherit the same themed `cex`, `lwd` and `lty` as their fixed-scale
+    counterparts. Previously the free-facet code path built its axis calls by
+    hand and so silently ignored `cex.axis`, `lwd.axis` and `lty.axis` (plus
+    their per-side variants), which was most visible under themes that set them,
+    e.g. `tinytheme("bw")`. (#673 @grantmcdermott)
+- Axis tick labels now honour their themed size, in two respects:
+  - The internal axis call passed `cex.axis` as `cex`, which base `axis()`
+    ignores in favour of `cex.axis` when sizing tick labels, so the setting had
+    no effect. This also means the per-side `cex.xaxs`/`cex.yaxs` parameters
+    (see above) take effect. (#677 @grantmcdermott)
+  - Dynamic margins read only the shared `cex.axis`, so a plot setting
+    `cex.xaxs`/`cex.yaxs` to different values clipped the labels on the larger
+    axis and reserved dead whitespace on the smaller one, e.g.
+    `tinytheme("heatmap", cex.xaxs = 2, cex.yaxs = 0.5)`. (#677 @grantmcdermott)
+- Grouped and faceted plots no longer redraw axes once per empty group. This was
+  most visible for `"spineplot"` types (e.g. `facet = "by"`), where the
+  self-drawn axis labels were overplotted several times and rendered too heavy.
+  (#637 @grantmcdermott)
+- Fixed several bugs in how faceted plots draw their axes. These were most
+  visible for `"spineplot"` and `"ridge"` types, which draw their own axes and so
+  bypassed the shared outer-axis logic, but some affected other types too.
+  (#660, #661 @grantmcdermott)
+  - Redundant interior axes are no longer drawn when the plot is frameless (e.g.
+    `tinytheme("clean2")`), where the category labels previously spilled into the
+    neighbouring facet.
+  - Category labels no longer overlap the neighbouring facet under framed themes
+    (e.g. `tinytheme("clean")`). The tick-label width was only reserved once, in
+    the outer margin, which is correct only when a single facet draws that axis.
+  - Flipped plots (e.g. `type = "boxplot", flip = TRUE`) no longer duplicate the
+    category axis while omitting the interior x-axes, which had left facets
+    labelled against a neighbour's scale.
+  - `axes = "t"` (and other tick-style axes) no longer drop the interior facet
+    labels.
+- Univariate `y ~ 1` formulas no longer silently drop explicitly-typed layers,
+  e.g. `tinyplot(body_mass ~ 1, data = penguins)` followed by
+  `tinyplot_add(type = type_vline(4500))`. The x-axis swap these formulas
+  require was only applied when the type had to be inferred, so an explicit type
+  was mistaken for an empty plot and never drawn. (#647 @grantmcdermott
+  @zeileis)
+- Gradient legend tick marks are now drawn as line segments, rather than text
+  dashes, thus ensuring more consistent behaviour across devices and themes.
+  (#715 @JanMarvin @grantmcdermott)
+- Gradient legends drawn below the plot (e.g. `legend = "bottom!"`) no longer
+  ride up over the x-axis under dynamic themes. (#719 @grantmcdermott)
+
+### Internals
+
+- Performance improvements. (#723, #724 @grantmcdermott)
+
 ## v0.7.0
 
 **tinyplot** v0.7.0 is a big release with many new features, including major
@@ -12,9 +437,9 @@ below for easier navigation.
 
 ### Aesthetic changes
 
-A major focus of v0.7.0 is bringing various aesthetic improvements to 
+A major focus of v0.7.0 is bringing various aesthetic improvements to
 **tinyplot**. These aesthetic improvements should carry over to all of your
-(tiny)plots automatically and do not require any changes to user-facing inputs 
+(tiny)plots automatically and do not require any changes to user-facing inputs
 or the core API. From that perspective they are not a breaking change, even
 though some of your plots may look slightly different from before. Still, we
 hope that you agree the following changes result in better looking
@@ -185,18 +610,19 @@ Theme fixes:
 - `tinyplot.data.frame()`: Supports direct plotting of data frames, alongside
   the new top-level function `tinypairs()`. Can be called with or without a
   formula. One benefit of the former is that it facilitates piping, e.g.
-  
+
   ```r
   iris |> plt(Sepal.Length ~ Petal.Width | Species)
   ```
-  
+
   If no formula is provided, then the behaviour depends on the number of
   variables (columns) in the data frame. For example, a dataset with 3 or more
-  variables will yield a `pairs()`-style grid of all variable combinations. 
+  variables will yield a `pairs()`-style grid of all variable combinations.
   Thanks to @mthulin for the suggestion and original implementation idea.
   (#613, #640 @zeileis @grantmcdermott)
+
 - `tinyplot.matrix()`: for `matrix` objects, e.g.
-  
+
   ```r
   plt(VADeaths, type = "b")
   ```
@@ -204,12 +630,13 @@ Theme fixes:
   The output largely mimics the base `matplot`/`matlines` equivalents, but with
   additional **tinyplot** functionality related to automatic legends, options
   for faceting, etc. (#649 @grantmcdermott)
+
 - `tinyplot.ts()`: for `ts` time series, e.g.
-  
+
   ```r
   plt(EuStockMarkets)
   ```
-  
+
   Produces a line plot by default, although users can override by passing an
   explicit `type` argument. Similarly, multivariate series are faceted by
   default, but users can also override to obtain, say, a single frame with
@@ -218,6 +645,7 @@ Theme fixes:
 #### Other new features
 
 - New and updated top-level `tinyplot()`/`plt()` arguments:
+
   - `cap = <string>` for adding a caption to your plots. Captions are drawn at
     the bottom of the plot and are best paired with dynamic themes (since
     separation from `sub` is guaranteed). Appearance is customizable via
@@ -232,28 +660,31 @@ Theme fixes:
     names can be passed for convenience. Users can also pass a weights argument
     directly at the type-specific function level, but this must be a vector
     of correct length (no NSE). For example:
-    
+
     ```r
     plt(y ~ x, data = dat, type = "lm", weights = w)        # top-level, NSE
     plt(y ~ x, data = dat, type = type_lm(weights = dat$w)) # type-level, vector
     ```
-    
+
     In addition to NSE convenience, the top-level variant is preferred since it
     is correctly matched to the model frame construction with the formula method
     (e.g., so missing values are handled automatically). Thanks to @eleuven for
     the original suggestion, as well as various discussion participants for
     helping to frame the scope. (#639 @grantmcdermott)
+
   - `labels = <varname>` for passing labels to `type = "text"`. Like the new
     `weights` argument (above), the main benefit is the convenience of NSE, as
     well as the automatic handling of missing values and subsets as part of the
     model frame construction. For example, compare:
-    
+
     ```r
     plt(y ~ x, data = dat, type = "text", labels = labs, subset = x < 10)
     plt(y ~ x, data = subset(dat, x < 10), type = type_text(labels = subset(dat, x < 10)$labs))
     ```
+
     The `labels` arg is silently ignored for non-text types.
     (#639 @grantmcdermott)
+
   - The `grid` argument (and `tpar("grid")`) now accepts character strings to
     control axis-specific grids at different resolutions. Uppercase letters
     (`"X"`, `"Y"`, `"XY"`) draw grid lines at the standard tick positions, while
@@ -271,6 +702,7 @@ Theme fixes:
       limit and lets the data determine the other.
     - The string `"rev"` (or `"reverse"`) reverses the auto-computed axis range,
       without needing to know the data extent in advance.
+
 - Type-specific updates:
   - `type_barplot()` gains an `offset` argument for shifting bar baselines away
     from zero. (#611, #615 @grantmcdermott @zeileis)
@@ -327,14 +759,14 @@ Theme fixes:
   `"ridge"` types. (#635, #650 @grantmcdermott)
 - `tinyplot_add()` (`plt_add()`) now captures its arguments unevaluated, so
   arguments that rely on non-standard evaluation against `data` (e.g.,
-  `plt_add(..., subset = <>)`) resolve correctly instead of erroring with 
+  `plt_add(..., subset = <>)`) resolve correctly instead of erroring with
   "object not found". (#638 @grantmcdermott)
 - `plt(..., ann = FALSE)` correctly turns off title annotations now, fixing a
   regression that we missed from at least v0.6.0. Thanks to @bastistician for
   the report. (#641 @zeileis)
 - Fixed `bquote()` (and other unevaluated language) annotations such as `main`,
   `sub`, `cap`, `xlab`, and `ylab` being evaluated instead of coerced to
-  plotmath expressions, e.g. `plt(0, 0, main = bquote(foo == .(pi)))`. Thanks 
+  plotmath expressions, e.g. `plt(0, 0, main = bquote(foo == .(pi)))`. Thanks
   (again) to @bastistician for the report. (#642 @grantmcdermott)
 - Line plots (`type = "l"`, and relatives like `"b"`/`"o"`) with a factor or
   character `x` variable now draw the category labels on the x-axis, matching
@@ -375,7 +807,7 @@ Theme fixes:
   (#565 @grantmcdermott)
 - Several improvements/fixes to jittered plots and layering:
   - Jittered plots now support Date/POSIXt axes. Thanks to @wachtermh for the
-     bug report and @vincentarelbundock for the code contribution. (#327)
+    bug report and @vincentarelbundock for the code contribution. (#327)
   - `tinyplot_add(type = "jitter")` no longer errors when layered on top of
     boxplot, violin, or similar categorical plot types. (#560 @grantmcdermott)
   - Jitter layers added via `tinyplot_add()` now align correctly with grouped
@@ -411,14 +843,14 @@ Theme fixes:
   will enable various internal enhancements, from improving the modularity and
   maintainability of the `tinyplot` codebase, to reducing memory overhead and
   performance (since we require fewer object copies). Looking ahead, we also
-  expect that it will make it easier to support new features and integration 
+  expect that it will make it easier to support new features and integration
   with downstream packages. Most `tinyplot` users should be unaffected by these
   internal changes. However, users who have defined their own custom types will
   need to make some adjustments to match the new `settings` logic; details are
   provided in the updated `Types` vignette. (#473 @vincentarelbundock and @grantmcdermott)
 - The ancillary `fixed.pos` argument for dodged plots has been renamed to
   `fixed.dodge` to avoid ambiguity, especially when passed down from a top-level
-  `tinyplot(...)` call. (#528 @grantmcdermott) 
+  `tinyplot(...)` call. (#528 @grantmcdermott)
 
 ### New features
 
@@ -461,7 +893,6 @@ Theme fixes:
   errorbar plot. (#517, #520, #523, #526 @grantmcdermott)
 - Custom axis titles work properly for one-sided (formula) bar plots. Thanks to
   @lbelzile for the report in #423. (#527 @grantmcdermott)
-
 
 ### Documentation
 
@@ -510,8 +941,8 @@ Theme fixes:
   `options()`. (#460 @zeileis)
 - Fixed several minor `tinylabel` bugs. (#468 @grantmcdermott)
   - `tinylabel(x, "%")` is more precise, preserving unique levels of `x` through
-     automatic decimal level determination. Thanks to @etiennebacher for the
-     bug report in #449.
+    automatic decimal level determination. Thanks to @etiennebacher for the
+    bug report in #449.
   - Numeric labellers now work on appropriate `x`/`y` variables, even if the
     plot type internally coerces it to factor (e.g., `"boxplot"`)
 - `type_text()` can now also deal with factor `x`/`y` variables by converting
@@ -532,7 +963,7 @@ Theme fixes:
 - Move `altdoc` from `Suggests` to `Config/Needs/website`.
   Thanks to @etiennebacher for the suggestion and to @eddelbuettel for help
   with the CI implementation.
-- Add a `devcontainer.json` file for remote testing. (#480 @grantmcdermott) 
+- Add a `devcontainer.json` file for remote testing. (#480 @grantmcdermott)
 
 ## v0.4.2
 
@@ -546,7 +977,7 @@ Theme fixes:
 ### Bug fixes
 
 - Fixed a long-standing issue whereby resizing the plot window would cause
-  secondary plot layers, e.g. from `plt_add()`, to become misaligned in 
+  secondary plot layers, e.g. from `plt_add()`, to become misaligned in
   faceted plots (#313). This also resolves a related alignment + layering issue
   specific to the Positron IDE
   ([positron#7316](https://github.com/posit-dev/positron/issues/7316)).
@@ -584,7 +1015,7 @@ Theme fixes:
 
 - `"barplot"` / `type_barplot()` for bar plots. This closes out
   one of the last remaining canonical base plot types that we wanted to provide
-  a native `tinyplot` equivalent for. (#305 and #360 @zeileis and @grantmcdermott) 
+  a native `tinyplot` equivalent for. (#305 and #360 @zeileis and @grantmcdermott)
 - `"violin"` / `type_violin()` for violin plots. (#354 @grantmcdermott)
 
 #### Other new features
@@ -599,28 +1030,30 @@ Theme fixes:
   - `xaxb`/`yaxb` control the manual break points of the axis tick marks. (#400 @grantmcdermott)
   - `xaxl`/`yaxl` apply a formatting function to change the appearance of the
     axis tick labels. (#363, #391 @grantmcdermott)
-    
-  These `x/yaxb` and `x/yaxl` arguments can be used in complementary fashion;
-  see the new (lower-level) `tinylabel` function documentation. For example:
+    These `x/yaxb` and `x/yaxl` arguments can be used in complementary fashion;
+    see the new (lower-level) `tinylabel` function documentation. For example:
   ```r
   tinyplot((0:10)/10, yaxb = c(.17, .33, .5, .67, .83), yaxl = "%")
   ```
 - The `x/ymin` and `x/ymax` arguments can now be specified directly via the
   `tinyplot.formula()` method thanks to better NSE processing. For example,
   instead of having to write
+
   ```r
   with(dat, tinyplot(x = x, y = y, by = by ymin = lwr, ymax = upr))
   ```
+
   users can now do
+
   ```r
   tinyplot(y ~ x | by, dat, ymin = lwr, ymax = upr)
   ```
-  
+
   Underneath the hood, this works by processing these NSE arguments as part of
   formula `model.frame()` and reference against the provided dataset. We plan to
   extend the same logic to other top-level formula arguments such as `weights`
   and `subset` in a future version of tinyplot.
-  
+
 ### Bug fixes:
 
 - The `tinyplot(..., cex = <cex>)` argument should be respected when using
@@ -728,32 +1161,31 @@ _(Primary PR and author: #222 @vincentarelbundock)_
 
 #### Support for additional plot types
 
-  - Visualizations:
-  
-    - `type_spineplot()` (shortcut: `"spineplot"`) spine plots and
+- Visualizations:
+
+  - `type_spineplot()` (shortcut: `"spineplot"`) spine plots and
     spinograms. These are modified versions of a histogram or mosaic plot,
     and are particularly useful for visualizing factor variables. (#233
     @zeileis with contributions from @grantmcdermott)
-    - `type_qq()` (shortcut: "qq") for quantile-quantile plots. (#251
+  - `type_qq()` (shortcut: "qq") for quantile-quantile plots. (#251
     @vincentarelbundock)
-    - `type_ridge()` (shortcut: `"ridge"`) for ridge plots aka Joy plots.
+  - `type_ridge()` (shortcut: `"ridge"`) for ridge plots aka Joy plots.
     (#252 @vincentarelbundock, @zeileis, and @grantmcdermott)
-    - `type_rug()` (shortcut: `"rug"`) adds a rug to an existing plot. (#276
+  - `type_rug()` (shortcut: `"rug"`) adds a rug to an existing plot. (#276
     @grantmcdermott)
-    - `type_text()` (shortcut: `"text"`) adds text annotations. (@vincentarelbundock)
-    
-  - Models:
-    - `type_glm()` (shortcut: `"glm"`) (@vincentarelbundock)
-    - `type_lm()` (shortcut: `"lm"`) (@vincentarelbundock)
-    - `type_loess()` (shortcut: `"loess"`) (@vincentarelbundock)
-    - `type_spline()` (shortcut: `"spline"`) (#241 @grantmcdermott)
-    
-  - Functions:
-    - `type_abline()`: line(s) with intercept and slope (#249 @vincentarelbundock)
-    - `type_hline()`: horizontal line(s) (#249 @vincentarelbundock)
-    - `type_vline()`: vertical line(s) (#249 @vincentarelbundock)
-    - `type_function()`: arbitrary function. (#250 @vincentarelbundock)
-    - `type_summary()`: summarize values of `y` along unique values of `x` (#274
+  - `type_text()` (shortcut: `"text"`) adds text annotations. (@vincentarelbundock)
+
+- Models:
+  - `type_glm()` (shortcut: `"glm"`) (@vincentarelbundock)
+  - `type_lm()` (shortcut: `"lm"`) (@vincentarelbundock)
+  - `type_loess()` (shortcut: `"loess"`) (@vincentarelbundock)
+  - `type_spline()` (shortcut: `"spline"`) (#241 @grantmcdermott)
+- Functions:
+  - `type_abline()`: line(s) with intercept and slope (#249 @vincentarelbundock)
+  - `type_hline()`: horizontal line(s) (#249 @vincentarelbundock)
+  - `type_vline()`: vertical line(s) (#249 @vincentarelbundock)
+  - `type_function()`: arbitrary function. (#250 @vincentarelbundock)
+  - `type_summary()`: summarize values of `y` along unique values of `x` (#274
     @grantmcdermott)
 
 #### Themes
@@ -778,32 +1210,30 @@ _(Primary PR and authors: #258 @vincentarelbundock and @grantmcdermott)_
 #### Other new features
 
 - New `tinyplot()` arguments:
-  -  `flip <logical>` allows for easily flipping (swapping) the orientation
-  of the x and y axes. This should work regardless of plot type, e.g.
-  `tinyplot(~Sepal.Length | Species, data = iris, type = "density", flip = TRUE)`.
-  (#216 @grantmcdermott)
+  - `flip <logical>` allows for easily flipping (swapping) the orientation
+    of the x and y axes. This should work regardless of plot type, e.g.
+    `tinyplot(~Sepal.Length | Species, data = iris, type = "density", flip = TRUE)`.
+    (#216 @grantmcdermott)
   - `draw = <draw_funcs>` allows users to pass arbitrary drawing functions that
-  are evaluated as-is, before the main plotting elements. A core use case is
-  drawing common annotations across every facet of a faceted plot, e.g. text or
-  threshold lines. (#245 @grantmcdermott)
+    are evaluated as-is, before the main plotting elements. A core use case is
+    drawing common annotations across every facet of a faceted plot, e.g. text or
+    threshold lines. (#245 @grantmcdermott)
   - `facet.args` gains a `free = <logical>` sub-argument for independently
-  scaling the axes limits of individual facets. (#253 @grantmcdermott)
-  
+    scaling the axes limits of individual facets. (#253 @grantmcdermott)
 - `tpar()` gains additional `grid.col`, `grid.lty`, and `grid.lwd` arguments for
   fine-grained control over the appearance of the default panel grid when
   `tinyplot(..., grid = TRUE)` is called. (#237 @grantmcdermott)
-  
 - The new `tinyplot_add()` (alias: `plt_add()`) convenience function allows
-easy layering of plots without having to specify repeat arguments. (#246
-@vincentarelbundock)
+  easy layering of plots without having to specify repeat arguments. (#246
+  @vincentarelbundock)
 
 ### Breaking changes
 
 - There are a few breaking changes to grouped density plots.
   - The joint smoothing bandwidth is now computed using an observation-weighted
-    mean (as opposed to a simple mean). Users can customize this joint bandwidth 
+    mean (as opposed to a simple mean). Users can customize this joint bandwidth
     by invoking the new `type_density(joint.bw = <option>)` argument. See the
-    function documentation for details.  (#291 @grantmcdermott and @zeileis)
+    function documentation for details. (#291 @grantmcdermott and @zeileis)
   - Grouped and/or faceted plots are no longer possible on density objects
     (i.e., via the `tinyplot.density()` method). Instead, please rather call
     `tinyplot(..., type = "density")` or `tinyplot(..., type = type_density())`
@@ -813,39 +1243,39 @@ easy layering of plots without having to specify repeat arguments. (#246
   `alpha` argument in `type_ribbon()` (and equivalents) instead: e.g.,
   `tinyplot(..., type = type_ribbon(alpha = 0.5))`.
   - Aside: Please note that this is _not_ equivalent to using
-  `tinyplot(..., type = "ribbon", alpha = 0.5)` because the latter matches the
-  top-level `alpha` argument of `tinyplot()` itself (and thus modifies the
-  entire `palette`, rather than just the ribbon). See our warning about passing
-  ancillary type-specific arguments above.
+    `tinyplot(..., type = "ribbon", alpha = 0.5)` because the latter matches the
+    top-level `alpha` argument of `tinyplot()` itself (and thus modifies the
+    entire `palette`, rather than just the ribbon). See our warning about passing
+    ancillary type-specific arguments above.
 
 ### Bug fixes
 
 - Better preserve facet attributes, thus avoiding misarrangement of facet grids
-for density and histogram types. (#209 @zeileis)
+  for density and histogram types. (#209 @zeileis)
 - Plots of the form `plt(numeric ~ character)` now work correctly, with the
-character variable automatically being coerced to a factor. (#219 @zeileis)
+  character variable automatically being coerced to a factor. (#219 @zeileis)
 - Respect `xlim` and `ylim` when explicitly supplied by the user. (Thanks to
-@mclements for code submission #221)
+  @mclements for code submission #221)
 - Axis titles for flipped (horizontal) boxplots are appropriately swapped too.
-(#223 @grantmcdermott)
+  (#223 @grantmcdermott)
 - Ribbon plots without `ymin` or `ymax` args, now inherit these values from `y`
-(#224 @grantmcdermott)
+  (#224 @grantmcdermott)
 - Plots where `y` is a factor now work automatically, dispatching to the new
-`type_spineplot()` type. Thanks to @zeileis for the original suggestion all the
-way back in #2 and the eventual solution in #233.
+  `type_spineplot()` type. Thanks to @zeileis for the original suggestion all the
+  way back in #2 and the eventual solution in #233.
 - Free axis scaling now works properly for faceted histograms. The new
-`type_histogram(free.breaks = <logical>, drop.zeros = <logical>)` arguments
-enable fine-grained control over this behaviour. (#228 @eleuven and
-@grantmcdermott)
+  `type_histogram(free.breaks = <logical>, drop.zeros = <logical>)` arguments
+  enable fine-grained control over this behaviour. (#228 @eleuven and
+  @grantmcdermott)
 
 ### Misc
 
 - Continued modularization/abstraction of the code logic. (#214
-@vincentarelbundock)
+  @vincentarelbundock)
 - Major internal refactor of the type drawing and data processing. (#222
-@vincentarelbundock)
+  @vincentarelbundock)
 - Documentation improvements, e.g. explicit guidance on how to specify multiple
-grouping variables (thanks to @strengejacke for reporting #213).
+  grouping variables (thanks to @strengejacke for reporting #213).
   - The new functional type processing system also means that each type now
     has its own help page (e.g. `?type_hist`, `type_ridge`, etc.)
 
@@ -854,9 +1284,10 @@ grouping variables (thanks to @strengejacke for reporting #213).
 New Features:
 
 - The `axes` argument of `tinyplot()`/`plt()` gains extra options for
-fine-grained control of the plot axes. In addition to the existing logical
-(`TRUE`/`FALSE`) option, users can now specify one of the following character
-keywords (or, just their first letters as a convenient shorthand):
+  fine-grained control of the plot axes. In addition to the existing logical
+  (`TRUE`/`FALSE`) option, users can now specify one of the following character
+  keywords (or, just their first letters as a convenient shorthand):
+
   - `"standard"` (with axis, ticks, and labels; equivalent to `TRUE`),
   - `"none"` (no axes; equivalent to `FALSE`),
   - `"ticks"` (only ticks and labels without axis line),
@@ -864,39 +1295,40 @@ keywords (or, just their first letters as a convenient shorthand):
   - `"axis"` (only axis line and labels but no ticks).
 
   Simultaneously, the main plotting functions also gain the `xaxt` and `yaxt`
-for _separately_ controlling the two axes using the same keyword options. For
-example, `plt(0:10, xaxt = "l", yaxt = "t")` will yield a plot where the x-axis
-only contains labels and the y-axis contains both labels and ticks, but no axis
-line. (#190 @zeileis)
+  for _separately_ controlling the two axes using the same keyword options. For
+  example, `plt(0:10, xaxt = "l", yaxt = "t")` will yield a plot where the x-axis
+  only contains labels and the y-axis contains both labels and ticks, but no axis
+  line. (#190 @zeileis)
+
 - Support additional boxplot arguments like `varwidth`, `notch`, etc. Note
-that `tinyplot(..., type = "boxplot", boxwidth = <num>)` is equivalent to the
-`boxplot(..., width = <num>)`; we just use the "box(width)" prefix to avoid 
-conflicting with the existing `tinyplot(..., width)` argument.
-(#196 @grantmcdermott)
+  that `tinyplot(..., type = "boxplot", boxwidth = <num>)` is equivalent to the
+  `boxplot(..., width = <num>)`; we just use the "box(width)" prefix to avoid
+  conflicting with the existing `tinyplot(..., width)` argument.
+  (#196 @grantmcdermott)
 
 Bug fixes:
 
 - Fix duplicate plots produced with `type = "density"`, which was a regression
-accidentally introduced in v0.2.0 (#187 @grantmcdermott)
+  accidentally introduced in v0.2.0 (#187 @grantmcdermott)
 - Ensure correct boxplot positioning if `x` == `by`, or these two are
-functionally identical. (#196 @grantmcdermott)
+  functionally identical. (#196 @grantmcdermott)
 - `xlab` and `ylab` arguments not respected in some plots. Thanks to @lbelzile
-for reporting Issue #203.
+  for reporting Issue #203.
 - Avoid triggering an inadvertent legend when a function transformation of x is
-plotted against x itself, `tinyplot(log(x) ~ x)`. (#197 @zeileis)
+  plotted against x itself, `tinyplot(log(x) ~ x)`. (#197 @zeileis)
 - Facets with interactions and/or multivariate formulas (e.g., complex grid
-arrangements like `tinyplot(mpg ~ wt, data = mtcars, facet = am + vs ~ gear)`)
-now plot all panels correctly, even if some combinations are missing. (#197
-@grantmcdermott)
+  arrangements like `tinyplot(mpg ~ wt, data = mtcars, facet = am + vs ~ gear)`)
+  now plot all panels correctly, even if some combinations are missing. (#197
+  @grantmcdermott)
 - Fix alignment of facet titles when axes are logged. (#207 @grantmcdermott)
-- Consistent decimals for gradient legends (#277 @grantmcdermott) 
+- Consistent decimals for gradient legends (#277 @grantmcdermott)
 
 Internals:
 
 - Continued modularization of the main code logic. (#192 & #198
-@vincentarelbundock)
+  @vincentarelbundock)
 - Revamped formula processing that allows for better sanity checking and
-edge-case logic. (#197 @zeileis)
+  edge-case logic. (#197 @zeileis)
 
 ## v0.2.0
 
@@ -904,12 +1336,12 @@ New features:
 
 - Support for additional plot types:
   - `type = "n"`, i.e. empty plot. Since `type = "n"` implicitly assumes points,
-  which limits the type of legend that can be drawn alongside the empty plot, we
-  have also added a companion `empty` argument that can be used alongside any
-  plot type. (#157, #167 @grantmcdermott)
+    which limits the type of legend that can be drawn alongside the empty plot, we
+    have also added a companion `empty` argument that can be used alongside any
+    plot type. (#157, #167 @grantmcdermott)
   - `type = "boxplot"`. Simultaneously enables `plt(numeric ~ factor)`
-  support, first raised in #2, so that a boxplot is automatically plotted if a
-  numeric is plotted against a factor. (#154 @grantmcdermott)
+    support, first raised in #2, so that a boxplot is automatically plotted if a
+    numeric is plotted against a factor. (#154 @grantmcdermott)
   - `type = "polypath"`. (#159 @grantmcdermott)
   - `type = "rect"`. (#161 @grantmcdermott)
   - `type = "segments"`. (#163 @grantmcdermott)
@@ -919,8 +1351,8 @@ New features:
 Internals:
 
 - The main codebase has been significantly refactored (modularized), which
-should simplify future maintenance and enable better user-level error messages
-(#171, #173 @vincentarelbundock)
+  should simplify future maintenance and enable better user-level error messages
+  (#171, #173 @vincentarelbundock)
 
 Misc:
 
@@ -938,89 +1370,86 @@ License:
 Breaking changes:
 
 - To ensure consistent "dot.case" style for all `tinyplot()` function arguments,
-the following two arguments have been renamed (`old` => `new`):
+  the following two arguments have been renamed (`old` => `new`):
   - `par_restore` => `restore.par` (note the change in word order too!)
   - `ribbon_alpha` => `ribbon.alpha`
-  
-  We don't believe that these two arguments are much used in practice. So
-  hopefully it will only have a negligible effect on existing `tinyplot` code in
-  the wild, even though it is a breaking change. (#149 @grantmcdermott)
+    We don't believe that these two arguments are much used in practice. So
+    hopefully it will only have a negligible effect on existing `tinyplot` code in
+    the wild, even though it is a breaking change. (#149 @grantmcdermott)
 
 New features:
 
 - Gradient legends are now supported if a continuous variable is passed to
-`by`. Thanks to @zeileis for detailed feedback and advice around the default
-palette choice (a restricted version of the "viridis" palette), as well as
-StackOverflow user mnel, whose answer
-[here](https://stackoverflow.com/a/13355440) provided the inspiration for the
-final implementation. (#122 @grantmcdermott)
+  `by`. Thanks to @zeileis for detailed feedback and advice around the default
+  palette choice (a restricted version of the "viridis" palette), as well as
+  StackOverflow user mnel, whose answer
+  [here](https://stackoverflow.com/a/13355440) provided the inspiration for the
+  final implementation. (#122 @grantmcdermott)
 - Ordered factors now inherit a discrete sequential color palette ("viridis") by
-default. Thanks to @zeileis for the suggestion. (#130 @grantmcdermott)
+  default. Thanks to @zeileis for the suggestion. (#130 @grantmcdermott)
 - Support user-supplied polygons. (#127 @grantmcdermott)
 - Support for the `lwd` argument for adjusting line widths. Similar to `pch`,
-`lty`, etc. this arguments also accepts a "by" convenience keyword to
-automatically vary line widths by group. (#134 @grantmcdermott)
+  `lty`, etc. this arguments also accepts a "by" convenience keyword to
+  automatically vary line widths by group. (#134 @grantmcdermott)
 - `tpar()` now accepts standard `par()` arguments in addition to the
-`tinyplot`-specific ones. This allows users to set or query graphical parameters
-via a single convenience function, instead having to invoke `tpar` and `par`
-separately. (#140 @grantmcdermott)
+  `tinyplot`-specific ones. This allows users to set or query graphical parameters
+  via a single convenience function, instead having to invoke `tpar` and `par`
+  separately. (#140 @grantmcdermott)
   - As an aside, `tpar()` has gained some additional parameters for fine-grained
-  control of global plot defaults, including `grid`, `ribbon.alpha`, and various
-  `file.*` parameters (see next bullet point).
+    control of global plot defaults, including `grid`, `ribbon.alpha`, and various
+    `file.*` parameters (see next bullet point).
 - Users can write plots directly to disk using the new `file` argument,
-alongside corresponding `width` and `height` arguments for output customization
-(both of which are defined in inches). For example,
-`tinyplot(..., file = "~/myplot.png", width = 8, height = 5)`. This
-implementation relies on a simple internal wrapper around the traditional R
-external graphics devices like `png()`, `pdf()`, etc. But it may prove more
-convenient, since the current global graphics parameters held in `(t)par()` are
-carried over to the external device too and don't need to be reset. Note that
-the appropriate device type is determined automatically by the file extension,
-which must be one of ".png", ".jpg" (".jpeg"), ".pdf", or ".svg".
-(#143 @grantmcdermott)
+  alongside corresponding `width` and `height` arguments for output customization
+  (both of which are defined in inches). For example,
+  `tinyplot(..., file = "~/myplot.png", width = 8, height = 5)`. This
+  implementation relies on a simple internal wrapper around the traditional R
+  external graphics devices like `png()`, `pdf()`, etc. But it may prove more
+  convenient, since the current global graphics parameters held in `(t)par()` are
+  carried over to the external device too and don't need to be reset. Note that
+  the appropriate device type is determined automatically by the file extension,
+  which must be one of ".png", ".jpg" (".jpeg"), ".pdf", or ".svg".
+  (#143 @grantmcdermott)
 - We have a shiny new `tinyplot` logo. (#148 @grantmcdermott)
 - The new `get_saved_par()` function can be used to retrieve the `par` settings
-from immediately before or immediately after the preceding `tinyplot` call.
-This function replaces some older (non-exported) internal functions that
-`tinyplot` was using to restore and control `par` environments. But it could
-also prove help to end users who are looking for additional ways to restore
-`par` settings after the fact. See `?get_saved_par` for some examples. (#152
-@grantmcdermott)
+  from immediately before or immediately after the preceding `tinyplot` call.
+  This function replaces some older (non-exported) internal functions that
+  `tinyplot` was using to restore and control `par` environments. But it could
+  also prove help to end users who are looking for additional ways to restore
+  `par` settings after the fact. See `?get_saved_par` for some examples. (#152
+  @grantmcdermott)
 - `tinyplot`/`plt` gains a new `alpha = <numeric[0,1]>` convenience argument for
-adding transparency to plot elements and colours. Example use:
-`plt(rnorm(1e3), pch = 19, alpha = 0.3)`. (#129 @grantmcdermott)
+  adding transparency to plot elements and colours. Example use:
+  `plt(rnorm(1e3), pch = 19, alpha = 0.3)`. (#129 @grantmcdermott)
 - Similar to the preceding news item, transparency can be added to (grouped)
-background fill by passing `bg` (or its alias, `fill`) a numeric in the range
-`[0,1]`. This feature has the same effect as `bg = "by"` except for the added
-transparency. Example use:
-`tinyplot(lat ~ long | depth, data = quakes, pch = 21, cex = 2, bg = 0.2)`. (#129
-@grantmcdermott)
-
+  background fill by passing `bg` (or its alias, `fill`) a numeric in the range
+  `[0,1]`. This feature has the same effect as `bg = "by"` except for the added
+  transparency. Example use:
+  `tinyplot(lat ~ long | depth, data = quakes, pch = 21, cex = 2, bg = 0.2)`. (#129
+  @grantmcdermott)
 
 Bug fixes:
 
 - Fixed bug that prevented `tpar(facet.x = ...)` args from being passed forward
-and set correctly. (#137 @grantmcdermott)
+  and set correctly. (#137 @grantmcdermott)
 - Fixed bug where custom legends weren't working with `type = "density"`. (#147
-@grantmcdermott)
+  @grantmcdermott)
 
 Internals:
 
 - We no longer ship the vignette(s) with the built package. This helps to reduce
-the size of the installation tarball and also avoids some redundancy with the
-actual help documentation (since many of the examples are the same). Note that
-the vignettes are all still rendered and available online at the `tinyplot`
-[website](https://grantmcdermott.com/tinyplot/).
-(#135 @grantmcdermott)
+  the size of the installation tarball and also avoids some redundancy with the
+  actual help documentation (since many of the examples are the same). Note that
+  the vignettes are all still rendered and available online at the `tinyplot`
+  [website](https://grantmcdermott.com/tinyplot/).
+  (#135 @grantmcdermott)
 - Similarly, we anticipate skipping tests on CRAN since the large suite of test
-snapshots (images) held in `inst/tinytest` is pushing the install tarball over
-CRAN's recommended 5 MB limit. Please note that local testing of the package
-requires adding the `NOT_CRAN=TRUE` environment variable to your .Renviron file
-(or, exporting it in your .bashrc/.zshrc/etc. dotfile if you prefer that
-approach). (#145 @vincentarelbundock & @grantmcdermott)
+  snapshots (images) held in `inst/tinytest` is pushing the install tarball over
+  CRAN's recommended 5 MB limit. Please note that local testing of the package
+  requires adding the `NOT_CRAN=TRUE` environment variable to your .Renviron file
+  (or, exporting it in your .bashrc/.zshrc/etc. dotfile if you prefer that
+  approach). (#145 @vincentarelbundock & @grantmcdermott)
 - Update some test snapshots to match slight changes in the way that R 4.4.0
-calculates `density` grid coords. (#150 @grantmcdermott)
-
+  calculates `density` grid coords. (#150 @grantmcdermott)
 
 ## v0.0.5
 
@@ -1065,8 +1494,7 @@ For more details about the rational underlying this renaming decision, please
 see the following GitHub comment, as well as the discussion that preceded it:
 https://github.com/grantmcdermott/plot2/issues/22#issuecomment-1928472754
 
-
-##  v0.0.4
+## v0.0.4
 
 Website:
 
@@ -1075,108 +1503,108 @@ We now have a dedicated website! (#80 @vincentarelbundock)
 New features:
 
 - Support for `cex` and `bg` (alias `fill`) arguments. The latter also permit
-the "by" convenience keyword similar to `lty` and `pch`. This is useful for
-plotting filled point characters (e.g., pch = 21), where you want a different
-colour for the fill and border. (#50, #75 @grantmcdermott)
+  the "by" convenience keyword similar to `lty` and `pch`. This is useful for
+  plotting filled point characters (e.g., pch = 21), where you want a different
+  colour for the fill and border. (#50, #75 @grantmcdermott)
 - Support for filled density plots. (#58 @grantmcdermott)
 - The new `add` argument allows new plot2 objects to be added to / on top of the
-existing plot window. (#60 @grantmcdermott)
+  existing plot window. (#60 @grantmcdermott)
 - Support for one-sided formulas, e.g. `plot2(~ Temp | Month, airquality)`. (#62
-@grantmcdermott and @zeileis)
+  @grantmcdermott and @zeileis)
 - Support for `plot2(x, type = "density")` as an alternative to
-`plot2(density(x))`. Works for both the atomic and one-sided formula methods.
-(#66 @grantmcdermott)
+  `plot2(density(x))`. Works for both the atomic and one-sided formula methods.
+  (#66 @grantmcdermott)
 - Support for "area" type plots as a special case of ribbon plots. (#68
-@grantmcdermott)
+  @grantmcdermott)
 - Partial matching for palette keywords. (#74 @grantmcdermott)
 - `plot2` gains a new `facet` argument for drawing faceted plots. Users can
-override the default square arrangement by passing the desired number of facet
-rows or columns to the companion `facet.args` helper function. Facets can be
-combined with `by` grouping, or used on their own.
-(#83, #91, #94, #96, #101, #103 @grantmcdermott)
+  override the default square arrangement by passing the desired number of facet
+  rows or columns to the companion `facet.args` helper function. Facets can be
+  combined with `by` grouping, or used on their own.
+  (#83, #91, #94, #96, #101, #103 @grantmcdermott)
 - Users can now control `plot2`-specific graphical parameters globally via
-the new `par2()` function (which is modeled on the base `par()` function). At
-the moment only a subset of global parameters, mostly related to legend and
-facet behaviour, are exposed in `par2`. But users can expect that more will be
-added in future releases. (#33, #94 @grantmcdermott)
+  the new `par2()` function (which is modeled on the base `par()` function). At
+  the moment only a subset of global parameters, mostly related to legend and
+  facet behaviour, are exposed in `par2`. But users can expect that more will be
+  added in future releases. (#33, #94 @grantmcdermott)
 
 Bug fixes:
 
 - Y-label correctly prints if a function was used for the atomic plot method,
-e.g. `plot2(rnorm(100))`. (#52 etiennebacher)
+  e.g. `plot2(rnorm(100))`. (#52 etiennebacher)
 - Ribbon plot types are now automatically ordered by the x variable. (#54
-@grantmcdermott)
+  @grantmcdermott)
 - Interval plots like ribbons, errorbars, and pointranges are now correctly
-plotted even if a y variable isn't specified. (#54 @grantmcdermott)
+  plotted even if a y variable isn't specified. (#54 @grantmcdermott)
 - Correctly label date-time axes. (#77 @grantmcdermott and @zeileis)
 - Improved consistency of legend and facet margins across different plot types
-and placement, via the new `lmar` and `fmar` arguments of `par2()`. The default
-legend margin is `par2(lmar = c(1,0, 0.1)`, which means that there is 1.0 line
-of padding between the legend and the plot region (inside margin) and 0.1 line 
-of padding between the legend and edge of the graphics device (outer margin).
-Similarly, the default facet padding is `par2(fmar = c(1,1,1,1)`, which means
-that there is a single line of padding around each side of the individual
-facets. Users can override these defaults by passing numeric vectors of the
-appropriate length to `par2()`. For example, `par2(lmar = c(0,0.1)` would shrink
-the inner gap between the legend and plot region to zero, but leave the small
-outer gap to outside of the graphics device unchanged. (#94 @grantmcdermott)
+  and placement, via the new `lmar` and `fmar` arguments of `par2()`. The default
+  legend margin is `par2(lmar = c(1,0, 0.1)`, which means that there is 1.0 line
+  of padding between the legend and the plot region (inside margin) and 0.1 line
+  of padding between the legend and edge of the graphics device (outer margin).
+  Similarly, the default facet padding is `par2(fmar = c(1,1,1,1)`, which means
+  that there is a single line of padding around each side of the individual
+  facets. Users can override these defaults by passing numeric vectors of the
+  appropriate length to `par2()`. For example, `par2(lmar = c(0,0.1)` would shrink
+  the inner gap between the legend and plot region to zero, but leave the small
+  outer gap to outside of the graphics device unchanged. (#94 @grantmcdermott)
 - Fix bug where grid wasn't auto-expanding correctly for area plots. (#92
-@grantmcdermott)
+  @grantmcdermott)
 
-##  v0.0.3
+## v0.0.3
 
 Breaking changes:
 
 - Colour palettes are now controlled via a single `palette` argument that
-unifies the old `palette` and (deprecated) `palette.args` arguments. In
-addition, the default palette for small groups has been changed from "Okabe-Ito"
-to "R4". (#31 and #32 @grantmcdermott)
+  unifies the old `palette` and (deprecated) `palette.args` arguments. In
+  addition, the default palette for small groups has been changed from "Okabe-Ito"
+  to "R4". (#31 and #32 @grantmcdermott)
 - Legends are now controlled via a single `legend` argument that unifies the
-previous (deprecated) `legend.position` and `legend.args` arguments.  This
-change also enables several enhancements over the old legend behaviour; see
-below. (#34 @grantmcdermott)
+  previous (deprecated) `legend.position` and `legend.args` arguments. This
+  change also enables several enhancements over the old legend behaviour; see
+  below. (#34 @grantmcdermott)
 
 New features:
 
 - Add support for the argument `log`. (#15 @etiennebacher)
 - Add support for grouped density plots. (#18 @grantmcdermott)
 - Add support for (both grouped and non-grouped) "c", "h", "s", and "S" types.
-(#26 @grantmcdermott)
+  (#26 @grantmcdermott)
 - Both the `pch` and `lty` arguments now accept a "by" convenience keyword for
-automatically adjusting plot characters and line types by groups. (#28
-@grantmcdermott)
+  automatically adjusting plot characters and line types by groups. (#28
+  @grantmcdermott)
 - Add outside ("!") placement support for remaining legend keywords, e.g.
-"top!", "left!", "topright!", etc. Users also gain finer control over many other
-aspects of the legend via the new unified `legend` argument, including changing
-labels, turning of the legend title, and so on. (#34 @grantmcdermott) 
+  "top!", "left!", "topright!", etc. Users also gain finer control over many other
+  aspects of the legend via the new unified `legend` argument, including changing
+  labels, turning of the legend title, and so on. (#34 @grantmcdermott)
 - Add support for `"pointrange"`, `"errobar"`, and `"ribbon"` plot types. (#35
-@vincentarelbundock, #40 and #46 @grantmcdermott)
+  @vincentarelbundock, #40 and #46 @grantmcdermott)
 - Support `grid = TRUE` as an alternative to `grid = grid()`. (#43
-@grantmcdermott)
+  @grantmcdermott)
 
 Bug fixes:
 
 - Setting `par(pch=X)` globally is now respected. (#20 @grantmcdermott)
 - Fix x-axis scale/index when y is NULL. (#24 @grantmcdermott)
 - Setting a global palette, e.g. `palette("ggplot2")` is now respected. (#44
-@grantmcdermott)
+  @grantmcdermott)
 
-##  v0.0.2
+## v0.0.2
 
 Breaking changes:
 
 - Legend defaults have been changed. The default position is now "right!" and
-drawn without a border, i.e. bty = "n" (#14 by @grantmcdermott).
+  drawn without a border, i.e. bty = "n" (#14 by @grantmcdermott).
 
 New features:
 
 - Allow users to specify different `pch`, `lty`, and `col` types per group (#5
-and #11 by @vincentarelbundock).
+  and #11 by @vincentarelbundock).
 
 Bug fixes:
 
 - Adding further elements to `plot2` now works (#13 by @grantmcdermott, thanks
-@karoliskoncevicius for reporting).
+  @karoliskoncevicius for reporting).
 
 Internals:
 
@@ -1186,8 +1614,8 @@ Internals:
 Project:
 
 - @vincentarelbundock and @zeileis have joined the project as core contributors.
-🎉
+  🎉
 
-##  v0.0.1
+## v0.0.1
 
-* Initial release on GitHub.
+- Initial release on GitHub.

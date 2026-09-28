@@ -54,16 +54,24 @@
 #' * `adj.ylab`: Numeric value between 0 and 1 controlling the alignment of the y-axis label.
 #' * `cairo`: Logical indicating whether \code{\link[grDevices]{cairo_pdf}} should be used when writing plots to PDF. If `FALSE`, then \code{\link[grDevices]{pdf}} will be used instead, with implications for embedding (non-standard) fonts. Only used if `tinyplot(..., file = "<filename>.pdf")` is called. Defaults to the value of `capabilities("cairo")`.
 #' * `cex.cap`: Numeric expansion factor for the plot caption text. Defaults to `1` for the default, basic, and dynamic themes, and `0.8` for clean/classic and their descendants.
+#' * `cex.xaxs`, `cex.yaxs`: Numeric expansion factors for the x- and y-axis tick labels, respectively. Both default to `NULL`, whereby the shared `cex.axis` value is used instead (which in turn falls back to `par("cex.axis")`). Set one of them to size a single axis' tick labels independently of the other, e.g. `cex.yaxs` to shrink a long list of category names on the y-axis without also shrinking the x-axis. Compare `cex.xlab` and `cex.ylab`, which do the same for the axis _titles_.
 #' * `col.cap`: Character specifying the colour of the plot caption. Defaults to `"black"`.
+#' * `col.xaxs`, `col.yaxs`: Characters (or integers) specifying the colour of the x- and y-axis tick labels, respectively. Both default to `NULL`, whereby the shared `col.axis` value is used instead.
 #' * `col.default`: Default colour for single-group displays (i.e. plots without a `by` grouping). Can be `NULL`, a length-1 character colour, or a length-1 numeric index into `palette.qualitative`. Defaults to `NULL`, in which case the first colour of the active qualitative palette is used (or base `palette()[1]`, typically black, if no theme is set). A character value sets the single-group colour independently of the multi-group palette. A numeric value `i` selects the `i`th colour of `palette.qualitative` as the single-group default; a *negative* index additionally drops that colour from the palette used for grouped plots. For example, `col.default = -1` paired with `palette.qualitative = "Okabe-Ito"` uses black (the leading palette colour) for single-group plots and an Okabe-Ito-minus-black palette for grouped plots, avoiding the need to maintain a separate "no-black" palette.
 #' * `font.cap`: Integer specifying the font face for the plot caption (`1` = plain, `2` = bold, `3` = italic, `4` = bold italic). Defaults to `1`.
 #' * `line.cap`: Numeric specifying the margin line on which to draw the caption. If `NULL` (default), computed automatically based on the available bottom margin.
 #' * `dynmar`: Logical indicating whether `tinyplot` should attempt dynamic adjustment of margins to reduce whitespace and/or account for spacing of text elements (e.g., long horizontal y-axis labels). Note that this parameter is tightly coupled to internal `tinythemes()` logic and should _not_ be adjusted manually unless you really know what you are doing or don't mind risking unintended consequences to your plot.
+#' * `facet.axes`: Character string controlling which facets draw their own axes: `"all"` (each facet), `"outer"` (only facets on the outer edge of the facet grid, dropping redundant interior axes), or `"none"`. Defaults to `NULL`, whereby the choice is inferred from whether the plot is framed (see the `axes` argument of [`facet.args`][tinyplot]). Equivalent to setting `tinyplot(..., facet.args = list(axes = X))`, but globally, which also makes it available to themes.
+#' * `facet.drop`: Logical indicating whether facet levels that no observation uses should be dropped, rather than drawing an empty panel. Defaults to `FALSE`. Equivalent to setting `tinyplot(..., facet.args = list(drop = X))`, but globally, which also makes it available to themes.
+#' * `facet.drop.levels`: Logical indicating whether each free facet (`facet.args = list(free = TRUE)`) should keep only the categories of a categorical axis that it actually uses, re-levelled as if that panel's data had been passed through `factor()` on its own. Defaults to `FALSE`, i.e. every panel shows the full set of categories. Equivalent to setting `tinyplot(..., facet.args = list(drop.levels = X))`, but globally, which also makes it available to themes.
 #' * `facet.bg`: Character or integer specifying the facet background colour. If an integer, will correspond to the user's default colour palette (see `palette`). Passed to `rect`. Defaults to `NULL` (none).
 #' * `facet.border`: Character or integer specifying the facet border colour. If an integer, will correspond to the user's default colour palette (see `palette`). Passed to `rect`. Defaults to `NA` (none).
 #' * `facet.cex`: Expansion factor for facet titles. Defaults to `1`.
 #' * `facet.col`: Character or integer specifying the facet text colour. If an integer, will correspond to the user's default global colour palette (see `palette`). Defaults to `NULL`, which is equivalent to "black".
 #' * `facet.font`: An integer corresponding to the desired font face for facet titles. For most font families and graphics devices, one of four possible values: `1` (regular), `2` (bold), `3` (italic), or `4` (bold italic). Defaults to `NULL`, which is equivalent to `1` (i.e., regular).
+#' * `facet.labeller`: A formatting function (or [`tinylabel`] convenience string, e.g. `"percent"`) applied to the facet titles, or a list of them (or a character vector of convenience strings), optionally named for the facet variables they apply to, for formatting each facet variable differently. Note that this per-variable naming claims the same slot that a [`tinylabel`] dictionary would, so a dictionary has to be nested inside it, e.g. `facet.labeller = list(Species = c(setosa = "SET"))`. Defaults to `NULL` (no formatting). Applied to the underlying facet values, i.e. before any `facet.prefix` name is added. Equivalent to setting `tinyplot(..., facet.args = list(labeller = X))`, but globally.
+#' * `facet.prefix`: Logical or character controlling whether facet titles are prefixed with their variable name, e.g. `"vs = 0"` rather than just `"0"`. `TRUE` uses the variable name(s), while a character string---or a vector or list of them, one element per facet variable, optionally named for the variables they apply to---supplies custom name(s) instead. Defaults to `NULL`, which is equivalent to `FALSE` (no prefix). Equivalent to setting `tinyplot(..., facet.args = list(prefix = X))`, but globally.
+#' * `facet.sep`: Character string separating the individual variables of a multi-variable facet title, e.g. `"\n"` to stack them on separate lines. Ignored for single-variable facets. Defaults to `NULL`, i.e. the `":"` that the variables were combined with, or `", "` if they are prefixed via `facet.prefix` (above). Equivalent to setting `tinyplot(..., facet.args = list(sep = X))`, but globally.
 #' * `file.height`: Numeric specifying the height (in inches) of any plot that is written to disk using the `tinyplot(..., file = X)` argument. Defaults to `7`.
 #' * `file.res`: Numeric specifying the resolution (in dots per square inch) of any plot that is written to disk in bitmap format (i.e., PNG or JPEG) using the `tinyplot(..., file = X)` argument. Defaults to `300`.
 #' * `file.width`: Numeric specifying the width (in inches) of any plot that is written to disk using the `tinyplot(..., file = X)` argument. Defaults to `7`.
@@ -75,9 +83,14 @@
 #' * `grid.lwd`: Non-negative numeric giving the line width of the panel grid lines. Defaults to `1`.
 #' * `grid`: Logical or character indicating whether a background panel grid should be added to plots automatically. Defaults to `NULL`, which is equivalent to `FALSE`. In addition to logical values, a character string can be used to control axis-specific grids: uppercase letters (`"X"`, `"Y"`, `"XY"`) draw grid lines at the standard axis tick positions (equivalent to `TRUE`), while lowercase letters (`"x"`, `"y"`, `"xy"`) draw a finer grid with additional lines at the midpoints between ticks.
 #' * `lmar`: A numeric vector of form `c(inner, outer)` that gives the margin padding, in terms of lines, around the automatic `tinyplot` legend. Defaults to `c(1.0, 0.1)`. The inner margin is the gap between the legend and the plot region, and the outer margin is the gap between the legend and the edge of the graphics device.
+#' * `lty.xaxs`, `lty.yaxs`: Line types for the x- and y-axis lines, respectively. Both default to `NULL`, whereby the shared `lty.axis` value is used instead.
+#' * `lwd.xaxs`, `lwd.yaxs`: Line widths for the x- and y-axis lines, respectively. Both default to `NULL`, whereby the shared `lwd.axis` value is used instead.
 #' * `palette.qualitative`: Palette for qualitative colors. See the `palette` argument in `?tinyplot`.
 #' * `palette.sequential`: Palette for sequential colors. See the `palette` argument in `?tinyplot`.
+#' * `record`: (experimental) Logical indicating whether `tinyplot()` should record plots and return them as replayable \code{\link{recordedtinyplot}} objects. Defaults to `NULL`, which is equivalent to `FALSE`. Setting to `TRUE` allows for assignment and later recall, e.g. `myplot = tinyplot(...); myplot`. Sets the default for the `record` argument of [`tinyplot()`], which takes precedence. Note that recording requires a device with an enabled display list (see \code{\link[grDevices]{dev.control}}). Most interactive devices enable this behaviour by default, whereas file-based devices do not. However `tinyplot()` automatically enables it for any device that it opens itself via `file`, and further emits a warning if the current device is not recording.
 #' * `ribbon.alpha`: Numeric factor in the range `[0,1]` for modifying the opacity alpha of "ribbon" and "area" type plots. Default value is `0.2`.
+#' * `xpad`, `ypad`: Numeric specifying how much padding, as a fraction of the data range, should be added to each end of the x- and y-axis, respectively. Both default to `NULL`, in which case an automatic heuristic applies: a numeric axis inherits from `x/yaxs` (usually 4% padding on each end), whereas a categorical axis with point-like glyphs and few unique categories instead gets 25% of the gap between interior tick marks. Sets the default for the `xpad` and `ypad` arguments of [`tinyplot()`], which take precedence and where the heuristic is described in full.
+#' * `xaxr`, `yaxr`: Numeric giving the rotation of the x- and y-axis tick labels, in degrees counter-clockwise; `NULL` (the default) leaves them unrotated. Unlike `las`, which is limited to the four right angles, any angle is permitted. Setting one overrides `las` for that axis alone, leaving the other axis under `las` as usual, and `0` (or any multiple of 360) counts as no rotation at all. Sets the default for the `xaxr` and `yaxr` arguments of [`tinyplot()`], which take precedence. Two caveats follow from tinyplot drawing rotated labels itself rather than deferring to base `axis()`. First, margins are only resized to fit them under a theme with `dynmar = TRUE` (see `tinytheme`); under the default theme the margins are left alone, so a long rotated label will be clipped unless you widen `mar` yourself. Second, rotated labels do not inherit the thinning that `axis()` applies via `gap.axis`, so they start to overlap once the spacing between ticks falls below `line height / sin(srt)`.
 #'
 #' @importFrom graphics par
 #' @importFrom utils modifyList
@@ -87,6 +100,7 @@
 #' stages of a `tinyplot` call (and used for internal accounting purposes).
 #' [`tinytheme`] allows users to easily set a group of graphics parameters
 #' in a single function call, according to a variety of predefined themes.
+#' [`tinytheme_get`] returns the name of the currently active theme.
 #'
 #' @examples
 #' # Return a list of existing base and tinyplot graphic params
@@ -204,17 +218,41 @@ tpar = function(..., hook = FALSE) {
 }
 
 
+# Names that base par() recognises. Querying par() for anything else emits a
+# warning, and raising then suppressing it costs about four times the lookup
+# itself. Most tpar parameters are tinyplot's own (grid.bg, palette, x/yaxr,
+# ...), so without this guard every plot pays that penalty a dozen times over.
+#
+# Cached in .tinyplot_env on first use rather than at load time: par() needs an
+# open device, and calling it from .onLoad would open one as a side effect
+# (writing a stray Rplots.pdf). The name set does not vary by device, so a
+# single per-session cache is safe.
+base_par_names = function() {
+  # read directly rather than via get_environment_variable(): this sits on a
+  # path hit ~24 times per plot, where the helper's overhead is measurable
+  bpn = .tinyplot_env[[".base_par_names"]]
+  if (is.null(bpn)) {
+    # no.readonly = FALSE is the full set, including the read-only pars
+    # (cin, cra, csi, cxy, din, page); those cannot be set but are valid to
+    # query, so they belong here
+    bpn = names(par(no.readonly = FALSE))
+    set_environment_variable(.base_par_names = bpn)
+  }
+  return(bpn)
+}
+
 # Two levels of priority: .tpar[["name"]] -> par("name")
 get_tpar = function(opts, default = NULL, tpar_list = NULL) {
   if (is.null(tpar_list)) tpar_list = .tpar
   # parameter priority
   # .tpar[["name"]] -> par("name")
+  bpn = base_par_names()
   for (o in opts) {
     tp = tpar_list[[o]]
     if (!is.null(tp)) {
       return(tp)
-    } else {
-      p = suppressWarnings(par(o))
+    } else if (o %in% bpn) {
+      p = par(o)
       if (!is.null(p)) {
         return(p)
       }
@@ -232,6 +270,8 @@ known_tpar = c(
     "adj.xlab",
     "adj.ylab",
     "cex.cap",
+    "cex.xaxs",
+    "cex.yaxs",
     "cex.xlab",
     "cex.ylab",
     "col.cap",
@@ -245,11 +285,17 @@ known_tpar = c(
     "gap.lab",
     "gap.main",
     "gap.sub",
+    "facet.axes",
+    "facet.drop",
+    "facet.drop.levels",
     "facet.bg",
     "facet.border",
     "facet.cex",
     "facet.col",
     "facet.font",
+    "facet.labeller",
+    "facet.prefix",
+    "facet.sep",
     "file.height",
     "file.res",
     "file.width",
@@ -270,11 +316,16 @@ known_tpar = c(
     "pch",
     "palette.qualitative",
     "palette.sequential",
+    "record",
     "ribbon.alpha",
     "side.sub",
     "tinytheme",
+    "xaxr",
     "xaxt",
-    "yaxt"
+    "xpad",
+    "yaxr",
+    "yaxt",
+    "ypad"
 )
 
 
@@ -291,10 +342,17 @@ assert_tpar = function(.tpar) {
   assert_numeric(.tpar[["adj.sub"]], len = 1, lower = 0, upper = 1, null.ok = TRUE, name = "adj.sub")
   assert_numeric(.tpar[["adj.xlab"]], len = 1, lower = 0, upper = 1, null.ok = TRUE, name = "adj.xlab")
   assert_numeric(.tpar[["adj.ylab"]], len = 1, lower = 0, upper = 1, null.ok = TRUE, name = "adj.ylab")
+  assert_numeric(.tpar[["cex.xaxs"]], len = 1, lower = 0, null.ok = TRUE, name = "cex.xaxs")
+  assert_numeric(.tpar[["cex.yaxs"]], len = 1, lower = 0, null.ok = TRUE, name = "cex.yaxs")
+  assert_numeric(.tpar[["xaxr"]], len = 1, null.ok = TRUE, name = "xaxr")
+  assert_numeric(.tpar[["yaxr"]], len = 1, null.ok = TRUE, name = "yaxr")
+  assert_numeric(.tpar[["xpad"]], len = 1, lower = 0, null.ok = TRUE, name = "xpad")
+  assert_numeric(.tpar[["ypad"]], len = 1, lower = 0, null.ok = TRUE, name = "ypad")
   assert_flag(.tpar[["cairo"]], name = "cairo")
   assert_flag(.tpar[["dynmar"]], null.ok = FALSE, name = "dynmar")
   assert_choice(.tpar[["ljust"]], choice = c("left", "center", "l", "c"), null.ok = TRUE, name = "ljust")
   assert_numeric(.tpar[["lmar"]], len = 2, null.ok = TRUE, name = "lmar")
+  assert_flag(.tpar[["record"]], null.ok = TRUE, name = "record")
   assert_numeric(.tpar[["ribbon.alpha"]], len = 1, lower = 0, upper = 1, null.ok = TRUE, name = "ribbon.alpha")
   assert_numeric(.tpar[["grid.lwd"]], len = 1, lower = 0, null.ok = TRUE, name = "grid.lwd")
   assert_grid(.tpar[["grid"]], null.ok = TRUE, name = "grid")
@@ -303,6 +361,12 @@ assert_tpar = function(.tpar) {
   assert_numeric(.tpar[["file.width"]], len = 1, lower = 0, null.ok = TRUE, name = "file.width")
   assert_numeric(.tpar[["facet.font"]], len = 1, null.ok = TRUE, name = "facet.font")
   assert_numeric(.tpar[["facet.cex"]], len = 1, null.ok = TRUE, name = "facet.cex")
+  assert_choice(.tpar[["facet.axes"]], c("all", "outer", "none"), null.ok = TRUE, name = "facet.axes")
+  assert_logical(.tpar[["facet.drop"]], null.ok = TRUE, name = "facet.drop")
+  assert_logical(.tpar[["facet.drop.levels"]], null.ok = TRUE, name = "facet.drop.levels")
+  assert_labeller(.tpar[["facet.labeller"]], name = "facet.labeller", list.ok = TRUE)
+  assert_facet_prefix(.tpar[["facet.prefix"]], name = "facet.prefix")
+  assert_string(.tpar[["facet.sep"]], null.ok = TRUE, name = "facet.sep")
   assert_numeric(.tpar[["side.sub"]], len = 1, null.ok = TRUE, name = "side.sub")
   assert_string(.tpar[["grid.bg"]], null.ok = TRUE, name = "grid.bg")
   assert_numeric(.tpar[["fmar"]], len = 4, null.ok = TRUE, name = "fmar")
@@ -323,7 +387,7 @@ assert_tpar = function(.tpar) {
     assert_true(length(facet.col) == 1, name = "length(facet.col)==1")
   }
 
-  facet.bg = .tpar$facet.bg
+  facet.bg = .tpar[["facet.bg"]]
   if (!is.null(facet.bg)) {
     if (!is.numeric(facet.bg) && !is.character(facet.bg)) {
       stop("facet.bg needs to be NULL, or a numeric or character", call. = FALSE)
@@ -331,7 +395,7 @@ assert_tpar = function(.tpar) {
     assert_true(length(facet.bg) == 1, name = "length(facet.bg)==1")
   }
 
-  facet.border = .tpar$facet.border
+  facet.border = .tpar[["facet.border"]]
   if (!is.null(facet.border)) {
     if (!is.numeric(facet.border) && !is.character(facet.border) && !is.na(facet.border)) {
       stop("facet.border needs to be NULL, or a numeric, character, or NA", call. = FALSE)
@@ -341,6 +405,10 @@ assert_tpar = function(.tpar) {
 }
 
 init_tpar = function(rm_hook = FALSE) {
+  # `record` changes what tinyplot() returns, not how the plot looks, so it
+  # survives the wipe below (tinytheme() calls init_tpar() on every switch).
+  record_old = .tpar[["record"]]
+
   rm(list = names(.tpar), envir = .tpar)
 
   if (isTRUE(rm_hook)) {
@@ -351,46 +419,70 @@ init_tpar = function(rm_hook = FALSE) {
     }
   }
 
-  .tpar$cairo = if (is.null(getOption("tinyplot_cairo"))) capabilities("cairo") else as.logical(getOption("tinyplot_cairo"))
+  .tpar[["cairo"]] = if (is.null(getOption("tinyplot_cairo"))) capabilities("cairo") else as.logical(getOption("tinyplot_cairo"))
 
 
-  .tpar$dynmar = if (is.null(getOption("tinyplot_dynmar"))) FALSE else as.logical(getOption("tinyplot_dynmar"))
+  .tpar[["dynmar"]] = if (is.null(getOption("tinyplot_dynmar"))) FALSE else as.logical(getOption("tinyplot_dynmar"))
 
   # Figure output options if written to file
-  .tpar$file.width = if (is.null(getOption("tinyplot_file.width"))) 7 else as.numeric(getOption("tinyplot_file.width"))
-  .tpar$file.height = if (is.null(getOption("tinyplot_file.height"))) 7 else as.numeric(getOption("tinyplot_file.height"))
-  .tpar$file.res = if (is.null(getOption("tinyplot_file.res"))) 300 else as.numeric(getOption("tinyplot_file.res"))
+  .tpar[["file.width"]] = if (is.null(getOption("tinyplot_file.width"))) 7 else as.numeric(getOption("tinyplot_file.width"))
+  .tpar[["file.height"]] = if (is.null(getOption("tinyplot_file.height"))) 7 else as.numeric(getOption("tinyplot_file.height"))
+  .tpar[["file.res"]] = if (is.null(getOption("tinyplot_file.res"))) 300 else as.numeric(getOption("tinyplot_file.res"))
+
+  # Record plots as replayable objects (see `?recordedtinyplot`)
+  .tpar[["record"]] = if (!is.null(record_old)) {
+    record_old
+  } else if (is.null(getOption("tinyplot_record"))) {
+    NULL
+  } else {
+    as.logical(getOption("tinyplot_record"))
+  }
 
   # Facet margin, i.e. gap between the individual facet windows
-  .tpar$fmar = if (is.null(getOption("tinyplot_fmar"))) c(1, 1, 1, 1) else as.numeric(getOption("tinyplot_fmar"))
+  .tpar[["fmar"]] = if (is.null(getOption("tinyplot_fmar"))) c(1, 1, 1, 1) else as.numeric(getOption("tinyplot_fmar"))
 
   # Other facet options
-  .tpar$facet.cex = if (is.null(getOption("tinyplot_facet.cex"))) 1 else as.numeric(getOption("tinyplot_facet.cex"))
-  .tpar$facet.font = if (is.null(getOption("tinyplot_facet.font"))) NULL else as.numeric(getOption("tinyplot_facet.font"))
-  .tpar$facet.col = if (is.null(getOption("tinyplot_facet.col"))) NULL else getOption("tinyplot_facet.col")
-  .tpar$facet.bg = if (is.null(getOption("tinyplot_facet.bg"))) NULL else getOption("tinyplot_facet.bg")
-  .tpar$facet.border = if (is.null(getOption("tinyplot_facet.border"))) NA else getOption("tinyplot_facet.border")
+  .tpar[["facet.cex"]] = if (is.null(getOption("tinyplot_facet.cex"))) 1 else as.numeric(getOption("tinyplot_facet.cex"))
+  .tpar[["facet.font"]] = if (is.null(getOption("tinyplot_facet.font"))) NULL else as.numeric(getOption("tinyplot_facet.font"))
+  .tpar[["facet.col"]] = if (is.null(getOption("tinyplot_facet.col"))) NULL else getOption("tinyplot_facet.col")
+  .tpar[["facet.bg"]] = if (is.null(getOption("tinyplot_facet.bg"))) NULL else getOption("tinyplot_facet.bg")
+  .tpar[["facet.border"]] = if (is.null(getOption("tinyplot_facet.border"))) NA else getOption("tinyplot_facet.border")
+  .tpar[["facet.labeller"]] = if (is.null(getOption("tinyplot_facet.labeller"))) NULL else getOption("tinyplot_facet.labeller")
+  .tpar[["facet.prefix"]] = if (is.null(getOption("tinyplot_facet.prefix"))) NULL else getOption("tinyplot_facet.prefix")
+  .tpar[["facet.sep"]] = if (is.null(getOption("tinyplot_facet.sep"))) NULL else getOption("tinyplot_facet.sep")
 
   # Plot grid
-  .tpar$grid = if (is.null(getOption("tinyplot_grid"))) FALSE else as.logical(getOption("tinyplot_grid"))
-  .tpar$grid.col = if (is.null(getOption("tinyplot_grid.col"))) "lightgray" else getOption("tinyplot_grid.col")
-  .tpar$grid.lty = if (is.null(getOption("tinyplot_grid.lty"))) "dotted" else getOption("tinyplot_grid.lty")
-  .tpar$grid.lwd = if (is.null(getOption("tinyplot_grid.lwd"))) 1 else as.numeric(getOption("tinyplot_grid.lwd"))
+  .tpar[["grid"]] = if (is.null(getOption("tinyplot_grid"))) FALSE else as.logical(getOption("tinyplot_grid"))
+  .tpar[["grid.col"]] = if (is.null(getOption("tinyplot_grid.col"))) "lightgray" else getOption("tinyplot_grid.col")
+  .tpar[["grid.lty"]] = if (is.null(getOption("tinyplot_grid.lty"))) "dotted" else getOption("tinyplot_grid.lty")
+  .tpar[["grid.lwd"]] = if (is.null(getOption("tinyplot_grid.lwd"))) 1 else as.numeric(getOption("tinyplot_grid.lwd"))
 
   # Default colour for single-group displays (NULL defers to the first
   # qualitative palette colour, or base palette()[1] if no theme is active)
-  .tpar$col.default = if (is.null(getOption("tinyplot_col.default"))) NULL else getOption("tinyplot_col.default")
+  .tpar[["col.default"]] = if (is.null(getOption("tinyplot_col.default"))) NULL else getOption("tinyplot_col.default")
 
   # Legend justification
-  .tpar$ljust = if (is.null(getOption("tinyplot_ljust"))) "left" else getOption("tinyplot_ljust")
+  .tpar[["ljust"]] = if (is.null(getOption("tinyplot_ljust"))) "left" else getOption("tinyplot_ljust")
 
   # Legend margin, i.e. gap between the legend and the plot elements
-  .tpar$lmar = if (is.null(getOption("tinyplot_lmar"))) c(1.0, 0.1) else as.numeric(getOption("tinyplot_lmar"))
+  .tpar[["lmar"]] = if (is.null(getOption("tinyplot_lmar"))) c(1.0, 0.1) else as.numeric(getOption("tinyplot_lmar"))
 
   # Alpha fill (transparency) default for ribbon and area plots
-  .tpar$ribbon.alpha = if (is.null(getOption("tinyplot_ribbon.alpha"))) 0.2 else as.numeric(getOption("tinyplot_ribbon.alpha"))
+  .tpar[["ribbon.alpha"]] = if (is.null(getOption("tinyplot_ribbon.alpha"))) 0.2 else as.numeric(getOption("tinyplot_ribbon.alpha"))
 }
 
 ## initialize internal environment for tpar variables
 .tpar = new.env()
 init_tpar()
+
+
+# Restore a snapshot of .tpar taken with as.list(). Used to roll back an
+# ephemeral theme, whose tinytheme() calls wipe .tpar via init_tpar() and would
+# otherwise discard the user's own tpar() settings along with it. (#739)
+reset_tpar = function(snapshot) {
+  nms = names(.tpar)
+  extra = nms[!nms %in% names(snapshot)]
+  if (length(extra) > 0) rm(list = extra, envir = .tpar)
+  list2env(snapshot, envir = .tpar)
+  invisible(NULL)
+}

@@ -28,7 +28,7 @@ text_line_count = function(x) {
 # Main/sub sit above/below the plot box on the top/bottom side and add to the
 # margin additively.
 # Tick-label *width* for sides 2/4 (and *height* for 1/3 under las 2:3) is
-# handled separately by the existing whtsbp logic in draw_facet_window().
+# handled separately by tick_label_extent() in tinyAxis.R.
 # The caller is expected to take max(theme_mar[side], dynmar_side(...)) so
 # that the theme's starting `mar` acts as a baseline padding.
 dynmar_side = function(side, label, main = NULL, sub = NULL, cap = NULL,
@@ -36,7 +36,11 @@ dynmar_side = function(side, label, main = NULL, sub = NULL, cap = NULL,
   mgp = get_tpar("mgp", tpar_list = tpars)
   tcl = get_tpar("tcl", tpar_list = tpars, default = par("tcl"))
   tick_extent = if (side %in% 1:2 && isTRUE(axis_on)) {
-    cex_axis = get_tpar("cex.axis", tpar_list = tpars, default = 1)
+    # Per-side cex, falling back to the shared cex.axis (as for cex_lab below).
+    cex_axis = get_tpar(
+      if (side == 1L) c("cex.xaxs", "cex.axis") else c("cex.yaxs", "cex.axis"),
+      tpar_list = tpars, default = 1
+    )
     max(0, -tcl) + mgp[2] + 0.4 * cex_axis + 0.6
   } else 0
   label_extent = 0
@@ -108,9 +112,15 @@ env2env = function(source_env, target_env, keys = NULL) {
   if (is.null(keys)) {
     keys = ls(source_env, all.names = TRUE)
   }
-  for (nm in keys) {
-    assign(nm, source_env[[nm]], envir = target_env)
-  }
+  ## copy in one shot rather than one assign() per key: a single plot moves a
+  ## few hundred keys across ~20 calls, where the loop is about 4x slower.
+  ## ifnotfound preserves the old behaviour of writing NULL for an absent key,
+  ## and mget()'s inherits = FALSE default matches `[[` on an environment.
+  list2env(
+    mget(keys, envir = source_env, ifnotfound = list(NULL)),
+    envir = target_env
+  )
+  invisible(NULL)
 }
 
 
@@ -219,6 +229,63 @@ restore_margin_inner = function(ooma, topmar_epsilon = 0.1) {
 }
 
 
+#' Restore the original plot region
+#'
+#' @description A theme applies its margins through the `before.plot.new` hook,
+#'   so they live in the current graphics state but never reach `par()`.
+#'   Rolling an ephemeral theme back therefore leaves `par(plt)` describing a
+#'   different region than the one we just drew into. Base R recomputes the
+#'   device clipping rectangle from `par()`, but only when `xpd` changes, so
+#'   anything added afterwards gets silently truncated to the wrong rectangle
+#'   as soon as some intervening call touches `xpd` (e.g. `box()`, `mtext()`,
+#'   or `type_text(xpd = NA)`). See #629.
+#'
+#'   Fix: put the original (drawn-into) region back, then hand `mar_before`
+#'   back at the next `plot.new()` so the theme's margins don't leak into the
+#'   following plot.
+#'
+#' @param mar_before Pre-theme inner margins (from par("mar"))
+#'
+#' @returns NULL (called for side effect of resetting par("plt"))
+#'
+#' @keywords internal
+restore_plot_region = function(mar_before) {
+  if (is.null(dev.list())) return(invisible(NULL))
+  # read .saved_par_after directly: get_saved_par()'s match.arg() costs more
+  # than everything else here put together
+  dplt = .tinyplot_env[[".saved_par_after"]][["plt"]]
+  if (is.null(dplt) || all(par("plt") == dplt)) return(invisible(NULL))
+  par(plt = dplt)
+  # Arm the reset for the next plot.new(). `dplt` doubles as the sentinel: mar
+  # and plt are derived from each other, so plt still matching on the way out
+  # means nothing else has claimed the margins since.
+  .tinyplot_env[[".mar_pending"]] = list(mar = mar_before, plt = dplt)
+  hks = getHook("before.plot.new")
+  if (!any(vapply(hks, function(h) isTRUE(attr(h, "tinyplot_mar")), logical(1)))) {
+    # first in line, so a theme's own margin hook still has the last word
+    setHook("before.plot.new", mar_reset_hook, action = "prepend")
+  }
+  invisible(NULL)
+}
+
+
+# Installed once by restore_plot_region() and then left registered, so that
+# re-arming is a bare assignment. Every tinyplot_add() layer re-enters
+# restore_plot_region() -- the theme rollback resets `plt` just beforehand --
+# and setHook()/getHook() churn on each of them measurably outweighs leaving
+# an inert closure in place. A no-op unless some plot has armed it.
+mar_reset_hook = structure(
+  function() {
+    pending = .tinyplot_env[[".mar_pending"]]
+    if (is.null(pending)) return(invisible(NULL))
+    .tinyplot_env[[".mar_pending"]] = NULL
+    if (all(par("plt") == pending[["plt"]])) par(mar = pending[["mar"]])
+    invisible(NULL)
+  },
+  tinyplot_mar = TRUE
+)
+
+
 # Convert colour(s) to HCL-like (Luv) coordinates, preserving alpha. Helper for
 # seq_palette(). (Originally lived in type_spineplot.R.)
 #' @importFrom grDevices col2rgb convertColor hcl
@@ -259,4 +326,18 @@ seq_palette = function(x, n, power = 1.5, grayscale = FALSE) {
       l = 100 - seq.int(from = (100 - x[3L])^(1/power), to = pmin(8, (100 - x[3L])/2)^(1/power), length.out = n)^power,
       alpha = alpha
     )[1L:n]
+}
+
+# Equally-spaced prediction grid across the range of `x`, for model types that
+# draw a fitted curve. The grid is built on the log scale if the x-axis is
+# logarithmic, since a grid that is uniform in data space bunches into the
+# right-hand decades and leaves the left of the plot as a few straight
+# segments. `log` is the par-style string, i.e. "x", "xy", etc.
+model_grid = function(x, n = 100, log = "") {
+    rng = range(x, na.rm = TRUE)
+    if (grepl("x", log %||% "", fixed = TRUE) && all(rng > 0)) {
+        rng = log10(rng)
+        return(10^seq(rng[1L], rng[2L], length.out = n))
+    }
+    seq(rng[1L], rng[2L], length.out = n)
 }

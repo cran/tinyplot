@@ -1,9 +1,10 @@
 #' @rdname type_errorbar
 #' @export
-type_pointrange = function(dodge = 0, fixed.dodge = FALSE) {
+type_pointrange = function(dodge = 0, fixed.dodge = FALSE, xlevels = NULL, xord = "asis") {
+  ord_supplied = !missing(xord) || !is.null(xlevels)
   out = list(
     draw = draw_pointrange(),
-    data = data_pointrange(dodge = dodge, fixed.dodge = fixed.dodge),
+    data = data_pointrange(dodge = dodge, fixed.dodge = fixed.dodge, xlevels = xlevels, xord = xord, ord_supplied = ord_supplied),
     name = "p"
   )
   class(out) = "tinyplot_type"
@@ -47,20 +48,33 @@ draw_pointrange = function() {
 }
 
 
-data_pointrange = function(dodge, fixed.dodge) {
+data_pointrange = function(dodge, fixed.dodge, xlevels = NULL, xord = "asis", ord_supplied = TRUE) {
   fun = function(settings, ...) {
     env2env(settings, environment(), c("datapoints", "xlabs", "cex", "lty", "lwd"))
 
     if (is.character(datapoints$x)) {
       datapoints$x = as.factor(datapoints$x)
     }
+    ## default xord = "asis" preserves the row order of the data (i.e., no
+    ## new sorting by factor), since these types are typically used for
+    ## coefficient plots where that order is intentional
+    warn_ignored_ordering(datapoints$x, xlevels, xord, supplied = ord_supplied)
+    datapoints$x = sanitize_xlevels(datapoints$x, xlevels)
+    # before the collapse to integer positions below
+    if (!is.null(xord) && is.null(xlevels)) {
+      datapoints$x = sanitize_ord(
+        datapoints$x, datapoints[["y"]], NULL,
+        xord, arg = "xord", keywords = ord_keywords_distribution,
+        stat = "mean"
+      )
+    }
     if (is.factor(datapoints$x)) {
-      ## original data (i.e., no new sorting by factor)
-      xlvls = unique(datapoints$x)
-      datapoints$x = factor(datapoints$x, levels = xlvls)
+      xlvls = levels(datapoints$x)
       xlabs = seq_along(xlvls)
       names(xlabs) = xlvls
       datapoints$x = as.integer(datapoints$x)
+      # More generous padding for better plot aesthetic
+      settings[["type_hints"]][["pads_cat_axis"]] = TRUE
     }
     datapoints$xmin = datapoints$x
     datapoints$xmax = datapoints$x

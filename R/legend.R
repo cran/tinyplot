@@ -82,8 +82,9 @@ legend_outer_margins = function(legend_env, apply = TRUE) {
 
   # Step 1: Prepare margins before measuring
   if (legend_env$outer_side) {
-    # Extra bump for spineplot if outer_right legend (to accommodate secondary y-axis)
-    if (identical(legend_env$type, "spineplot")) {
+    # Extra bump for types with a secondary (RHS) axis when an outer legend is
+    # present, to accommodate that axis (e.g. spineplot).
+    if (isTRUE(legend_env$type_hints[["has_rhs_axis"]])) {
       lmar[1] = lmar[1] + 1.1
     }
 
@@ -257,8 +258,14 @@ tinylegend = function(legend_env) {
     legend_env$args[["text.width"]] = NULL
   }
 
-  # Re-measure legend dimensions (device size may have changed on resize)
-  legend_env$dims = measure_fake_legend(legend_env)
+  # Re-measure legend dimensions, but only when the device has actually
+  # changed. draw_legend() already measured on this device during setup, so on
+  # the initial draw the result is still current and a measuring pass costs
+  # about as much as drawing the legend itself. A resize, or a replay onto a
+  # different device, fails the key comparison and forces the re-measure.
+  if (is.null(legend_env$dims) || !identical(legend_env$dims_dev, legend_dev_key())) {
+    legend_env$dims = measure_fake_legend(legend_env)
+  }
 
   # Calculate and apply soma (outer margin adjustment based on legend size)
   # When soma_target is set (multi-legend), use it directly so all legends
@@ -361,6 +368,17 @@ tinylegend = function(legend_env) {
 
 
 # Measure legend dimensions using a fake (non-plotted) legend
+# Identity of the device a legend measurement belongs to. Size alone is not
+# enough: replaying or copying a display list onto a same-sized device with a
+# different backend (dev.copy(), dev.print(), an IDE's plot export) yields
+# different text metrics, so the device itself has to be part of the key.
+# dev.cur() is a named integer, so this captures the backend as well as the
+# device number.
+legend_dev_key = function() {
+  list(dev = dev.cur(), size = dev.size())
+}
+
+
 measure_fake_legend = function(legend_env) {
   fklgnd.args = modifyList(
     legend_env$args,
@@ -387,6 +405,10 @@ measure_fake_legend = function(legend_env) {
       )
     }
   }
+
+  # Record which device this measurement was taken on, so callers can tell
+  # whether a cached result is still valid (see tinylegend()).
+  legend_env$dims_dev = legend_dev_key()
 
   do.call("legend", fklgnd.args)
 }
@@ -496,12 +518,15 @@ prepare_legend = function(settings) {
     }
   }
 
-  # Grouped (`y_by`) spineplots draw their fills inside draw_spineplot() rather
-  # than via the shared `bg` channel, so `settings$bg` is NULL and the legend has
-  # nothing to mirror. Resolve the swatch fill here (where `col` is the resolved
-  # group palette) into `bg`, so the rest of the legend machinery treats it like
-  # any other area type. The fill tracks `lighten`, matching the plotted tiles.
-  if (identical(settings$type, "spineplot") && isTRUE(settings$type_info[["y_by"]])) {
+  # Types that fill their legend swatch from `col` and draw a grouped (`y_by`)
+  # variant do that fill inside their own draw_*() rather than via the shared
+  # `bg` channel, so `settings$bg` is NULL and the legend has nothing to mirror.
+  # Resolve the swatch fill here -- this has to happen after by_aesthetics(),
+  # which is where `col` becomes the resolved group palette -- so that the rest
+  # of the legend machinery treats it like any other area type. The fill tracks
+  # `lighten`, matching the plotted tiles.
+  if (isTRUE(settings$type_hints[["legend_fills_from_col"]]) &&
+      isTRUE(settings$type_info[["y_by"]])) {
     settings$bg = if (isTRUE(settings$lighten)) lighten_fill(col) else col
   }
 
@@ -538,7 +563,9 @@ prepare_legend = function(settings) {
 #' @param legend_args Additional legend arguments
 #' @param by_dep The (deparsed) "by" grouping variable name
 #' @param lgnd_labs The legend labels
-#' @param labeller Character or function for formatting labels
+#' @param labeller Function, character keyword, or dictionary (named vector or
+#'   list) for formatting or relabelling the labels. See [`tinylabel`] for the
+#'   accepted forms.
 #' @param type Plot type
 #' @param pch Plotting character(s)
 #' @param lty Line type(s)
@@ -610,17 +637,26 @@ build_legend_args = function(
     legend_args[["pch"]] = legend_args[["pch"]] %||% par("pch")
   }
 
-  # Special pt.bg handling for types that need color-based fills
-  if (identical(type, "spineplot")) {
-    # The swatch fill comes via `bg` (resolved in prepare_legend for the grouped
-    # `y_by` case; NULL otherwise, falling back to the group colour).
+  # Special pt.bg handling for types that need color-based fills. Types declare
+  # how their swatch fill is derived via hints, rather than being matched by name
+  # here; see type_spineplot(), type_ridge(), type_hexbin().
+  .hints = legend_env[["type_hints"]]
+  if (isTRUE(.hints[["legend_fills_from_col"]])) {
+    # Types that fill their swatch with the group colour itself. The fill comes
+    # via `bg` (resolved in prepare_legend for the grouped `y_by` case; NULL
+    # otherwise, falling back to the group colour).
     legend_args[["pt.bg"]] = legend_args[["pt.bg"]] %||% bg %||% legend_args[["col"]]
-    # Conversely, the border colour is always black
-    legend_args[["col"]] = par("fg")
-  } else if (identical(type, "ridge") && isFALSE(gradient)) {
+  } else if (isTRUE(.hints[["legend_fills_from_seq_palette"]]) && isFALSE(gradient)) {
+    # Types whose fill is a lighter step of the group colour's sequential ramp,
+    # matching how they shade the plotted area.
     legend_args[["pt.bg"]] = legend_args[["pt.bg"]] %||% sapply(legend_args[["col"]], function(ccol) seq_palette(ccol, n = 2)[2])
   } else {
     legend_args[["pt.bg"]] = legend_args[["pt.bg"]] %||% bg
+  }
+  # Independently of the fill: some types outline the swatch in the foreground
+  # colour rather than the group colour (e.g. spineplot's abutting tiles).
+  if (isTRUE(.hints[["legend_border_fg"]])) {
+    legend_args[["col"]] = par("fg")
   }
 
   # Set legend labels
@@ -677,6 +713,13 @@ build_legend_args = function(
     legend_args[["inset"]] = 0
   }
 
+  # legend() lists its first entry at the top, so a type whose groups read
+  # bottom-up needs its key flipped or it runs backwards against the geometry it
+  # labels. Gradient legends already run bottom-up, so they are exempt. (#632)
+  if (isTRUE(legend_env[["type_hints"]][["legend_reversed"]]) && isFALSE(gradient)) {
+    legend_args = reverse_legend_keys(legend_args, n = length(lgnd_labs))
+  }
+
   # Additional tweaks for horizontal and/or multi-column legends
   mcol_flag = !is.null(legend_args[["ncol"]]) && legend_args[["ncol"]] > 1
   user_inset = !is.null(legend_args[["inset"]])
@@ -714,6 +757,30 @@ build_legend_args = function(
 }
 
 
+## Flip a discrete legend key end-for-end. Every element below is positionally
+## aligned with the labels, so they all have to move together or the swatches
+## detach from their text. An allowlist rather than "reverse anything of length
+## n", because some non-grouped args are legitimately length 2 -- `inset` above
+## all -- and would be corrupted on any two-group plot. Scalars are skipped (a
+## recycled `lty`, or a `col` that legend_border_fg collapsed to par("fg")), as
+## is a `legend` still held as an unevaluated expression.
+reverse_legend_keys = function(legend_args, n) {
+  if (n < 2L) return(legend_args)
+  keys = c(
+    "legend",                              # the labels themselves
+    "col", "pch", "lty", "lwd",            # line/point key
+    "pt.bg", "pt.cex", "pt.lwd",           # point key fill and sizing
+    "fill", "border", "density", "angle",  # box key, only ever user-supplied
+    "text.col"                             # label colour, ditto
+  )
+  for (key in keys) {
+    val = legend_args[[key]]
+    if (is.atomic(val) && length(val) == n) legend_args[[key]] = rev(val)
+  }
+  legend_args
+}
+
+
 #' Build legend environment
 #'
 #' @description Creates the legend environment by:
@@ -726,7 +793,9 @@ build_legend_args = function(
 #' @param legend_args Additional legend arguments
 #' @param by_dep The (deparsed) "by" grouping variable name
 #' @param lgnd_labs The legend labels
-#' @param labeller Character or function for formatting labels
+#' @param labeller Function, character keyword, or dictionary (named vector or
+#'   list) for formatting or relabelling the labels. See [`tinylabel`] for the
+#'   accepted forms.
 #' @param type Plot type
 #' @param pch Plotting character(s)
 #' @param lty Line type(s)
@@ -754,6 +823,7 @@ build_legend_env = function(
 
   # Visual aesthetics
   type,
+  type_hints = NULL,
   pch,
   lty,
   lwd,
@@ -776,6 +846,7 @@ build_legend_env = function(
   # Initialize metadata
   legend_env$gradient = gradient
   legend_env$type = type
+  legend_env$type_hints = type_hints
   legend_env$has_sub = has_sub
   legend_env$has_cap = has_cap
   legend_env$cap_text = cap_text
@@ -833,8 +904,9 @@ build_legend_env = function(
 #'   \code{\link[graphics]{legend}}.
 #' @param by_dep The (deparsed) "by" grouping variable name.
 #' @param lgnd_labs The labels passed to `legend(legend = ...)`.
-#' @param labeller Character or function for formatting the labels (`lgnd_labs`).
-#'   Passed down to [`tinylabel`].
+#' @param labeller Function, character keyword, or dictionary (named vector or
+#'   list) for formatting or relabelling the labels (`lgnd_labs`). See
+#'   [`tinylabel`] for the accepted forms. Passed down to [`tinylabel`].
 #' @param type Plotting type(s), passed down from [tinyplot].
 #' @param pch Plotting character(s), passed down from [tinyplot].
 #' @param lty Plotting linetype(s), passed down from [tinyplot].
@@ -867,12 +939,18 @@ build_legend_env = function(
 #' @param dynmar_title_mar Numeric or `NULL`. The pre-computed `dynmar_computed[3]`
 #'   value for "top!" legends under dynmar themes. When set, the legend margin
 #'   formula uses this directly to ensure correct title positioning.
+#' @param type_hints Optional named list of semantic behaviour properties that a
+#'   plot type declares for itself (e.g. `has_rhs_axis` for a secondary
+#'   right-hand axis, or `legend_fills_from_col` for a legend swatch fill taken
+#'   from `col`). Passed down from [tinyplot]; defaults to `NULL`. Deliberately
+#'   last, so that adding it did not shift the position of any pre-existing
+#'   argument for positional callers.
 #'
 #' @returns No return value, called for side effect of producing a(n empty) plot
 #'   with a legend in the margin.
 #'
 #' @importFrom graphics grconvertX grconvertY rasterImage strheight strwidth xinch
-#' @importFrom grDevices as.raster recordGraphics
+#' @importFrom grDevices as.raster dev.size recordGraphics
 #' @importFrom utils modifyList
 #'
 #' @examples
@@ -954,7 +1032,10 @@ draw_legend = function(
   new_plot = TRUE,
   draw = TRUE,
   soma_target = NULL,
-  dynmar_title_mar = NULL
+  dynmar_title_mar = NULL,
+  # New args go last, to keep positional callers of this exported function
+  # working; always passed by name internally.
+  type_hints = NULL
 ) {
   if (is.null(lmar)) {
     lmar = tpar("lmar")
@@ -991,6 +1072,7 @@ draw_legend = function(
 
     # Visual aesthetics
     type = type,
+    type_hints = type_hints,
     pch = pch,
     lty = lty,
     lwd = lwd,

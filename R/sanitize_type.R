@@ -1,6 +1,16 @@
 sanitize_type = function(settings) {
   env2env(settings, environment(), c("type", "dots", "x", "y"))
 
+  # Univariate `y ~ 1` puts its single variable on the x-axis. Swap before the
+  # early returns below, else explicit types keep a NULL `x` and the draw loop
+  # discards them as empty (#647). Flag it first: post-swap, `y ~ 1` is
+  # indistinguishable from `~ x`, which defaults to points rather than histogram.
+  univariate = is.null(x) && !is.null(y)
+  if (univariate) {
+    settings$x = x = y
+    settings$y = y = NULL
+  }
+
   if (inherits(type, "tinyplot_type")) {
     settings$type = type$name
     settings$type_draw = type$draw
@@ -20,6 +30,7 @@ sanitize_type = function(settings) {
     "errorbar",
     "function",
     "glm",
+    "hex", "hexbin",
     "hist", "histogram",
     "hline",
     "j", "jitter",
@@ -35,25 +46,23 @@ sanitize_type = function(settings) {
     "ridge",
     "rug",
     "segments",
+    "sina",
     "spine", "spineplot",
     "spline",
     "summary",
     "text",
+    "tile", "heatmap",
     "violin",
     "vline"
   )
   assert_choice(type, known_types, null.ok = TRUE)
 
   if (is.null(type)) {
-    if (is.null(x) && !(is.factor(y) || is.character(y))) {
+    if (univariate && !(is.factor(x) || is.character(x))) {
       # enforce histogram type for y ~ 1
-      settings$x = y
-      settings$y = NULL
       type = type_hist
-    } else if (is.null(x) && (is.factor(y) || is.character(y))) {
+    } else if (univariate && (is.factor(x) || is.character(x))) {
       # enforce barplot type for factor(y) ~ 1
-      settings$x = y
-      settings$y = NULL
       type = type_barplot
     } else if ((is.factor(x) || is.character(x)) && is.null(y)) {
       # enforce barplot type for ~ factor(y)
@@ -83,6 +92,8 @@ sanitize_type = function(settings) {
       "errorbar"   = type_errorbar,
       "function"   = type_function,
       "glm"        = type_glm,
+      "hex"        = type_hexbin,
+      "hexbin"     = type_hexbin,
       "hist"       = type_histogram,
       "histogram"  = type_histogram,
       "hline"      = type_hline,
@@ -101,11 +112,14 @@ sanitize_type = function(settings) {
       "ridge"      = type_ridge,
       "rug"        = type_rug,
       "segments"   = type_segments,
+      "sina"       = type_sina,
       "spine"      = type_spineplot,
       "spineplot"  = type_spineplot,
       "spline"     = type_spline,
       "summary"    = type_summary,
       "text"       = type_text,
+      "tile"       = type_tile,
+      "heatmap"    = type_heatmap,
       "violin"     = type_violin,
       "vline"      = type_vline,
       type # default case (incl. line-family chars, handled below)

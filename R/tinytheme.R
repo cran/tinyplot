@@ -33,6 +33,7 @@
 #'     - `"tufte"` (*): floating axes and minimalist plot artifacts in the style of Edward Tufte.
 #'       - `"float"` (*): builds on `"tufte"` with outward ticks, fewer tick marks, and a "dark" qualitative palette.
 #'     - `"void"` (*): switches off all axes, titles, legends, etc.
+#'     - `"heatmap"` (*): a specialized theme for tile plots and heatmaps (see [`type_tile()`]). Builds off of `"clean2"`, but removes the axis padding so that the tiles meet the panel edge, drops the (redundant) grid lines, rotates the tick labels and removes their tick marks, and defaults to the "tealgrn" sequential palette. Not recommended for non-tile plots.
 #'     - `"ridge"` (*): a specialized theme for ridge plots (see [`type_ridge()`]). Builds off of `"clean"`, but adds ridge-specific tweaks (e.g. default "Zissou 1" palette for discrete colors, solid horizontal grid lines, and minor adjustments to y-axis labels). Not recommended for non-ridge plots.
 #'       - `"ridge2"` (*): removes the plot frame (box) from `"ridge"`, but retains the x-axis line. Again, not recommended for non-ridge plots.
 #' @param ... Named arguments to override specific theme settings. These
@@ -116,6 +117,8 @@
 #' @return The function returns nothing. It is called for its side effects.
 #' 
 #' @seealso [`tpar`] which does the heavy lifting under the hood;
+#'   [tinytheme_get()] for retrieving the name of the active theme;
+#'   [tinytheme_list()] for listing the names of all available themes;
 #'   [tinytheme_register()] for registering custom named themes.
 #'
 #' @examples
@@ -194,7 +197,7 @@ tinytheme = function(
       "clean", "clean2", "bw", "linedraw", "classic",
       "minimal", "ipsum", "ipsum2", "dark",
       "socviz", "broadsheet", "nber", "web",
-      "ridge", "ridge2",
+      "heatmap", "ridge", "ridge2",
       "tufte", "float", "void"
     ),
     ...,
@@ -225,6 +228,7 @@ tinytheme = function(
     "ipsum2" = theme_ipsum2,
     "minimal" = theme_minimal,
     "nber" = theme_nber,
+    "heatmap" = theme_heatmap,
     "ridge" = theme_ridge,
     "ridge2" = theme_ridge2,
     "socviz" = theme_socviz,
@@ -256,10 +260,14 @@ tinytheme = function(
   if (isTRUE(settings[["dynmar"]]) && !("mgp" %in% names(dots))) {
     .ga = settings[["gap.axis"]] %||% 0.2
     .gl = settings[["gap.lab"]] %||% 1.0
-    .ca = settings[["cex.axis"]] %||% 1
-    # FIXME: mgp is shared across sides, so we use the larger label cex to
+    # FIXME: mgp is shared across sides, so we use the larger tick/label cex to
     # avoid clipping on either axis. Ideally we'd set side-specific mgp when
-    # cex.xlab and cex.ylab differ.
+    # cex.xaxs and cex.yaxs (or cex.xlab and cex.ylab) differ.
+    .ca = max(
+      settings[["cex.axis"]] %||% 1,
+      settings[["cex.xaxs"]] %||% 0,
+      settings[["cex.yaxs"]] %||% 0
+    )
     .cl = max(
       settings[["cex.lab"]] %||% 1,
       settings[["cex.xlab"]] %||% 0,
@@ -291,6 +299,47 @@ tinytheme = function(
 }
 
 
+#' @title Get the currently active theme
+#'
+#' @description Returns the name of the [`tinytheme`] that is currently in
+#'   effect. Handy for saving a theme and restoring it later, or for querying
+#'   the active theme programmatically.
+#'
+#' @details A thin convenience wrapper around the `"tinytheme"` entry of
+#'   [`tpar`]. The difference is that it always returns a plain character
+#'   string, including in a session where no theme has been set yet (where
+#'   `tpar("tinytheme")` returns `NULL` rather than `"default"`). Use [`tpar`]
+#'   if you want the full set of underlying theme settings, rather than just
+#'   the name.
+#'
+#'   Note that a theme passed to the `tinyplot(..., theme =)` argument is
+#'   ephemeral: it is reset on exit, so it is only visible to
+#'   `tinytheme_get()` from inside that same call (e.g. via `draw`).
+#'
+#' @returns A character string naming the active theme.
+#'
+#' @seealso [tinytheme], [tinytheme_register], [tpar]
+#'
+#' @examples
+#' # no theme set yet
+#' tinytheme_get()
+#'
+#' # save the current theme, switch, then restore it afterwards
+#' otheme = tinytheme_get()
+#' tinytheme("classic")
+#' tinytheme_get()
+#'
+#' tinyplot(mpg ~ wt, data = mtcars)
+#'
+#' tinytheme(otheme) # back to where we started
+#' tinytheme_get()
+#'
+#' @export
+tinytheme_get = function() {
+  get_tpar("tinytheme", default = "default")
+}
+
+
 
 #
 ## Themes (these are read and set at initial load time)
@@ -300,7 +349,7 @@ builtin_themes = c(
   "clean", "clean2", "bw", "linedraw", "classic",
   "minimal", "ipsum", "ipsum2", "dark",
   "socviz", "broadsheet", "nber", "web",
-  "ridge", "ridge2",
+  "heatmap", "ridge", "ridge2",
   "tufte", "float", "void"
 )
 
@@ -320,6 +369,8 @@ theme_default = list(
   cex.main = par("cex.main"), #1.2,
   cex.cap = 1,
   cex.sub = par("cex.sub"), #1,
+  cex.xaxs = NULL, # defer to cex.axis unless set explicitly
+  cex.yaxs = NULL, # defer to cex.axis unless set explicitly
   cex.xlab = NULL, # defer to par("cex.lab") unless set explicitly
   cex.ylab = NULL, # defer to par("cex.lab") unless set explicitly
   col = par("col"), #"black",
@@ -333,6 +384,8 @@ theme_default = list(
   dynmar = FALSE,
   facet.bg = NULL,
   facet.border = NA,
+  facet.drop = FALSE,
+  facet.drop.levels = FALSE,
   family = par("family"), # ""
   fg = par("fg"),
   font = par("font"), # 1,
@@ -359,6 +412,14 @@ theme_default = list(
   side.sub = 1,
   tck = NA,
   tcl = par("tcl"), # -0.5
+  # `theme_default` doubles as the reset baseline for tinytheme(), so every
+  # parameter that *any* theme sets has to appear here -- otherwise nothing
+  # restores it and the setting leaks into subsequent (incl. base) plots. The
+  # axis styles below are only touched by the "heatmap" theme so far.
+  xaxs = par("xaxs"), # "r"
+  yaxs = par("yaxs"), # "r"
+  xaxr = NULL, # no tick label rotation unless set explicitly
+  yaxr = NULL, # no tick label rotation unless set explicitly
   xaxt = "standard",
   yaxt = "standard"
 )
@@ -427,6 +488,7 @@ theme_classic = modifyList(theme_dynamic, list(
   cex.axis = 0.8,
   cex.cap = 0.8,
   col.default = -1L,  # black single-group; drop it from the grouped palette
+  facet.axes = "outer",
   facet.bg = NULL,
   font.main = 1,
   gap.axis = 0.1,
@@ -440,6 +502,7 @@ theme_classic = modifyList(theme_dynamic, list(
 
 theme_clean2 = modifyList(theme_clean, list(
   tinytheme = "clean2",
+  facet.axes = "outer",
   facet.border = "gray90",
   xaxt = "labels",
   yaxt = "labels"
@@ -476,6 +539,7 @@ theme_linedraw = modifyList(theme_bw, list(
 theme_minimal = modifyList(theme_bw, list(
   tinytheme = "minimal",
   bty = "n",
+  facet.axes = "outer",
   facet.bg = NULL,
   facet.border = NULL,
   xaxt = "labels",
@@ -531,6 +595,21 @@ theme_dark = modifyList(theme_minimal, list(
 
 # derivatives of clean/clean2
 
+# Companion theme for type_tile() / type_heatmap(). Tiles are opaque and drawn
+# edge-to-edge, so the usual axis padding leaves them floating inside the panel
+# and the grid is hidden behind them regardless. Long categorical labels are the
+# norm for correlation matrices, hence the rotated, tick-less axes.
+theme_heatmap = modifyList(theme_clean2, list(
+  tinytheme = "heatmap",
+  gap.axis = 0,
+  grid = FALSE,
+  las = 2,
+  palette.sequential = "tealgrn",
+  tcl = 0,
+  xaxs = "i",
+  yaxs = "i"
+))
+
 theme_ridge = modifyList(theme_clean, list(
   tinytheme = "ridge",
   col.default = "black",  # keep black ridgelines; Zissou is for gradient fills
@@ -558,6 +637,7 @@ theme_socviz = modifyList(theme_minimal, list(
   col.default = "black",  # bespoke palette doesn't lead with black; pin it
   col.xaxs = "gray10",
   col.yaxs = "gray10",
+  facet.axes = "outer",
   facet.bg = NULL,
   facet.col = "grey10",
   font.main = 2,
@@ -584,6 +664,7 @@ theme_broadsheet = modifyList(theme_dynamic, list(
   col.cap = "gray40",
   col.default = -1L,  # black single-group; drop it from the grouped palette
   col.sub = "gray40",
+  facet.axes = "outer",
   font.main = 2,
   gap.axis = 0.1,
   gap.lab = 0.5,
@@ -630,6 +711,7 @@ theme_web = modifyList(theme_dynamic, list(
   cex.cap = 0.8,
   col.cap = "gray40",
   col.sub = "gray40",
+  facet.axes = "outer",
   font.main = 2,
   grid = TRUE,
   grid.col = "#D2D2D2",
@@ -650,6 +732,7 @@ theme_web = modifyList(theme_dynamic, list(
 theme_tufte = modifyList(theme_dynamic, list(
   tinytheme = "tufte",
   bty = "n",
+  facet.axes = "outer",
   facet.bg = NULL,
   facet.border = NA,
   font.main = 1,
@@ -674,6 +757,7 @@ theme_float = modifyList(theme_tufte, list(
 theme_void = modifyList(theme_dynamic, list(
   tinytheme = "void",
   col.default = "black",
+  facet.axes = "outer",
   facet.bg = NULL,
   facet.border = NA,
   font.main = 1,
@@ -730,7 +814,7 @@ get_theme_def = function(name) {
 #'   `tinytheme_list()` returns a named list with character vectors `builtin`
 #'   and `registered`. `tinytheme_unregister()` returns `NULL` (invisibly).
 #'
-#' @seealso [tinytheme()]
+#' @seealso [tinytheme()], [tinytheme_get()]
 #'
 #' @examples
 #' # Register a custom theme based on "float" but with a grid

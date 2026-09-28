@@ -37,7 +37,12 @@
 #'   to disambiguate from `frame.plot`.
 #' @param ... further arguments passed to `tinyplot`.
 #'
-#' @returns No return value, called for the side effect of producing a plot.
+#' @returns By default, no return value; called for the side effect of producing
+#'   a plot. If `record = TRUE` (or globally via `tpar(record = TRUE)`), the
+#'   plot is instead returned invisibly as a `"recordedtinyplot"` object; see
+#'   \code{\link{recordedtinyplot}}. The exception is the pairs-style case
+#'   (more than two columns), which draws a grid of sub-plots and always
+#'   returns `NULL`.
 #'
 #' @examples
 #' ## using tinyplot() with data frames
@@ -165,7 +170,7 @@ tinypairs = function (x, by = NULL, labs = FALSE, frames = FALSE, ...) {
   ## language object because `cl` is a matched call, so `cl[["theme"]]` is
   ## unevaluated (e.g. the call `list("dark")`, not a list).
   cex_fct_adj = ifelse(n > 2, 0.66, 0.83) # use same scaling as with faceted plots.
-  active_theme = get_tpar("tinytheme", default = "default")
+  active_theme = tinytheme_get()
   theme_arg = cl[["theme"]]
   if (is.null(theme_arg)) {
     theme_ij = bquote(list(.(active_theme), cex = .(cex_fct_adj)))
